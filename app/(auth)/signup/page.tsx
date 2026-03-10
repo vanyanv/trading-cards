@@ -6,7 +6,7 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="font-[var(--font-display)] text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight">
             Create account
           </h1>
           <p className="mt-2 text-sm text-muted">
@@ -14,7 +14,7 @@ export default function SignupPage() {
           </p>
         </div>
 
-        <div className="rounded-xl border border-border bg-surface p-6">
+        <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
           <AuthForm mode="signup" />
         </div>
 
@@ -22,7 +22,7 @@ export default function SignupPage() {
           Already have an account?{' '}
           <Link
             href="/login"
-            className="text-foreground underline underline-offset-4 transition-colors hover:text-white"
+            className="font-medium text-foreground underline underline-offset-4"
           >
             Sign in
           </Link>

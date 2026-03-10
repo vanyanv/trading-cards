@@ -68,14 +68,14 @@ export default function PackOpeningPage() {
   if (error) {
     return (
       <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center gap-4 px-4">
-        <p className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">
+        <p className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
           {error}
         </p>
         <button
-          onClick={() => router.push('/store')}
-          className="text-sm text-muted underline underline-offset-4 hover:text-foreground"
+          onClick={() => router.push('/')}
+          className="text-sm text-muted transition-colors hover:text-foreground"
         >
-          Back to store
+          Back to packs
         </button>
       </div>
     );
@@ -86,7 +86,9 @@ export default function PackOpeningPage() {
       <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="spinner" />
-          <p className="text-sm text-muted">Preparing your pack...</p>
+          <p className="text-sm text-muted">
+            Preparing your pack...
+          </p>
         </div>
       </div>
     );

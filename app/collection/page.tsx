@@ -25,7 +25,6 @@ export default async function CollectionPage() {
     .eq('user_id', user.id)
     .order('obtained_at', { ascending: false });
 
-  // Reshape the joined data
   const shaped: UserCard[] = (userCards || []).map((uc) => ({
     id: uc.id,
     user_id: uc.user_id,
@@ -37,15 +36,17 @@ export default async function CollectionPage() {
   }));
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12">
+    <div className="mx-auto max-w-5xl px-6 py-12">
       <div className="mb-8">
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-bold tracking-tight">
-          Your Collection
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Collection
         </h1>
         <p className="mt-2 text-sm text-muted">
-          Every card you&apos;ve pulled from packs.
+          Every card you&apos;ve pulled.
         </p>
       </div>
+
+      <div className="mb-8 h-px bg-border" />
 
       <CollectionGrid userCards={shaped} />
     </div>

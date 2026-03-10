@@ -38,12 +38,12 @@ export function CollectionFilters({
 
   return (
     <div className="space-y-4">
-      {/* Stats bar */}
+      {/* Stats */}
       <div className="flex items-center gap-4 text-sm text-muted">
         <span>
-          <strong className="text-foreground">{totalCards}</strong> total cards
+          <strong className="text-foreground">{totalCards}</strong> total
         </span>
-        <span className="text-muted-dim">·</span>
+        <span className="text-muted-dim">/</span>
         <span>
           <strong className="text-foreground">{uniqueCards}</strong> unique
         </span>
@@ -58,7 +58,7 @@ export function CollectionFilters({
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search cards..."
-            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm placeholder:text-muted-dim transition-colors focus:border-white/20 focus:outline-none"
+            className="w-full rounded-md border border-border bg-surface py-2.5 pl-9 pr-3 text-sm placeholder:text-muted-dim transition-colors focus:border-foreground focus:outline-none"
           />
         </div>
 
@@ -66,7 +66,7 @@ export function CollectionFilters({
           <select
             value={selectedSet}
             onChange={(e) => onSetChange(e.target.value)}
-            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground transition-colors focus:border-white/20 focus:outline-none"
+            className="rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-foreground transition-colors focus:border-foreground focus:outline-none"
           >
             <option value="all">All sets</option>
             {sets.map((s) => (
@@ -88,12 +88,16 @@ export function CollectionFilters({
               key={r}
               onClick={() => toggleRarity(r)}
               className={cn(
-                'rounded-full px-3 py-1 text-xs font-medium transition-all active:scale-[0.97]',
+                'inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-all active:scale-[0.97]',
                 isSelected
-                  ? config.badgeClass
-                  : 'bg-white/5 text-muted hover:bg-white/8'
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'bg-transparent text-muted border-border hover:border-muted-dim'
               )}
             >
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: config.color }}
+              />
               {config.label}
             </button>
           );

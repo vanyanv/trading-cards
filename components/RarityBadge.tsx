@@ -3,7 +3,6 @@
 import { Rarity } from '@/types';
 import { RARITY_CONFIG } from '@/lib/constants';
 import { cn } from '@/lib/cn';
-import { Sparkles } from 'lucide-react';
 
 export function RarityBadge({
   rarity,
@@ -17,13 +16,15 @@ export function RarityBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
-        config.badgeClass,
+        'inline-flex items-center gap-1.5 text-xs font-medium',
         className
       )}
     >
-      {rarity === Rarity.HyperRare && <Sparkles className="h-3 w-3" />}
-      {config.label}
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: config.color }}
+      />
+      <span style={{ color: config.color }}>{config.label}</span>
     </span>
   );
 }

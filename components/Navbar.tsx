@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/cn';
-import { Coins, LogOut, Layers, Store } from 'lucide-react';
+import { Coins, LogOut } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
 export function Navbar() {
@@ -48,7 +48,6 @@ export function Navbar() {
     return () => subscription.unsubscribe();
   }, [supabase]);
 
-  // Animate coin counter
   useEffect(() => {
     if (coins === null) return;
     const diff = coins - displayCoins;
@@ -76,71 +75,60 @@ export function Navbar() {
     router.refresh();
   };
 
-  const navLinks = [
-    { href: '/store', label: 'Store', icon: Store },
-    { href: '/collection', label: 'Collection', icon: Layers },
-  ];
-
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <div className="flex items-center gap-6">
+    <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
+      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
+        <div className="flex items-center gap-8">
           <Link
             href="/"
-            className="font-[family-name:var(--font-display)] text-lg font-bold tracking-tight"
+            className="text-lg font-semibold tracking-tight text-foreground"
           >
-            PokéPacks
+            PokePacks
           </Link>
 
           {user && (
-            <div className="hidden items-center gap-1 sm:flex">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors',
-                    pathname === link.href
-                      ? 'bg-white/5 text-foreground'
-                      : 'text-muted hover:text-foreground'
-                  )}
-                >
-                  <link.icon className="h-4 w-4" />
-                  {link.label}
-                </Link>
-              ))}
-            </div>
+            <Link
+              href="/collection"
+              className={cn(
+                'text-sm transition-colors',
+                pathname === '/collection'
+                  ? 'text-foreground font-medium'
+                  : 'text-muted hover:text-foreground'
+              )}
+            >
+              Collection
+            </Link>
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {user ? (
             <>
               {coins !== null && (
-                <div className="flex items-center gap-1.5 rounded-lg bg-surface px-3 py-1.5 text-sm font-medium">
-                  <Coins className="h-4 w-4 text-rarity-rare" />
-                  <span className="tabular-nums">{displayCoins}</span>
+                <div className="flex items-center gap-1.5 text-sm text-muted">
+                  <Coins className="h-3.5 w-3.5" />
+                  <span className="tabular-nums font-medium text-foreground">{displayCoins}</span>
                 </div>
               )}
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:text-foreground"
+                className="flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Sign out</span>
               </button>
             </>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Link
                 href="/login"
-                className="rounded-lg px-3 py-1.5 text-sm text-muted transition-colors hover:text-foreground"
+                className="text-sm text-muted transition-colors hover:text-foreground"
               >
                 Sign in
               </Link>
               <Link
                 href="/signup"
-                className="rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-black transition-all hover:bg-white/90 active:scale-[0.97]"
+                className="rounded-md bg-foreground px-4 py-1.5 text-sm font-medium text-background transition-opacity hover:opacity-80 active:opacity-70"
               >
                 Sign up
               </Link>

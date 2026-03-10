@@ -6,15 +6,15 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="font-[var(--font-display)] text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight">
             Welcome back
           </h1>
           <p className="mt-2 text-sm text-muted">
-            Sign in to open packs and view your collection
+            Sign in to your account
           </p>
         </div>
 
-        <div className="rounded-xl border border-border bg-surface p-6">
+        <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
           <AuthForm mode="login" />
         </div>
 
@@ -22,7 +22,7 @@ export default function LoginPage() {
           Don&apos;t have an account?{' '}
           <Link
             href="/signup"
-            className="text-foreground underline underline-offset-4 transition-colors hover:text-white"
+            className="font-medium text-foreground underline underline-offset-4"
           >
             Sign up
           </Link>

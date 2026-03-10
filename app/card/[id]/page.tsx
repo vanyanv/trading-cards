@@ -32,7 +32,6 @@ export default async function CardDetailPage({
   const typedCard = card as Card;
   const config = RARITY_CONFIG[typedCard.rarity as Rarity];
 
-  // Check how many copies the user owns
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -48,7 +47,7 @@ export default async function CardDetailPage({
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
+    <div className="mx-auto max-w-4xl px-6 py-12">
       <Link
         href="/collection"
         className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground"
@@ -60,89 +59,66 @@ export default async function CardDetailPage({
       <div className="grid gap-10 md:grid-cols-2">
         {/* Card image */}
         <div className="flex items-start justify-center">
-          <div
-            className="relative overflow-hidden rounded-2xl border"
-            style={{
-              borderColor: config.color + '40',
-              boxShadow: `0 0 40px ${config.glowColor}`,
-            }}
-          >
+          <div className="overflow-hidden rounded-lg border border-border shadow-lg">
             <img
               src={typedCard.image_url_hires || typedCard.image_url}
               alt={typedCard.name}
-              className="w-full max-w-xs"
+              className="w-full max-w-sm"
             />
-            {typedCard.rarity === 'Hyper Rare' && (
-              <div className="pointer-events-none absolute inset-0 shimmer" />
-            )}
           </div>
         </div>
 
         {/* Card details */}
         <div>
           <RarityBadge rarity={typedCard.rarity as Rarity} className="mb-3" />
-          <h1 className="font-[family-name:var(--font-display)] text-3xl font-bold tracking-tight">
+          <h1 className="text-3xl font-semibold tracking-tight">
             {typedCard.name}
           </h1>
 
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center justify-between rounded-lg bg-surface px-4 py-3">
-              <span className="text-sm text-muted">Set</span>
-              <span className="text-sm font-medium">{typedCard.set_name}</span>
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg bg-surface px-4 py-3">
-              <span className="text-sm text-muted">Type</span>
-              <span className="text-sm font-medium">{typedCard.supertype}</span>
-            </div>
-
-            {typedCard.hp && (
-              <div className="flex items-center justify-between rounded-lg bg-surface px-4 py-3">
-                <span className="text-sm text-muted">HP</span>
-                <span className="text-sm font-medium">{typedCard.hp}</span>
-              </div>
-            )}
-
+          <div className="mt-6 space-y-2">
+            <DetailRow label="Set" value={typedCard.set_name} />
+            <DetailRow label="Type" value={typedCard.supertype} />
+            {typedCard.hp && <DetailRow label="HP" value={typedCard.hp} />}
             {typedCard.types && typedCard.types.length > 0 && (
-              <div className="flex items-center justify-between rounded-lg bg-surface px-4 py-3">
-                <span className="text-sm text-muted">Types</span>
-                <span className="text-sm font-medium">
-                  {typedCard.types.join(', ')}
-                </span>
-              </div>
+              <DetailRow label="Types" value={typedCard.types.join(', ')} />
             )}
-
             {typedCard.subtypes && typedCard.subtypes.length > 0 && (
-              <div className="flex items-center justify-between rounded-lg bg-surface px-4 py-3">
-                <span className="text-sm text-muted">Subtypes</span>
-                <span className="text-sm font-medium">
-                  {typedCard.subtypes.join(', ')}
-                </span>
-              </div>
+              <DetailRow label="Subtypes" value={typedCard.subtypes.join(', ')} />
             )}
-
-            <div className="flex items-center justify-between rounded-lg bg-surface px-4 py-3">
-              <span className="text-sm text-muted">Rarity</span>
-              <span className="text-sm font-medium" style={{ color: config.color }}>
-                {config.label}
-              </span>
-            </div>
-
+            <DetailRow
+              label="Rarity"
+              value={config.label}
+              valueColor={config.color}
+            />
             {user && (
-              <div className="flex items-center justify-between rounded-lg bg-surface px-4 py-3">
-                <span className="text-sm text-muted">Owned</span>
-                <span className="text-sm font-medium">
-                  {ownedCount === 0 ? (
-                    <span className="text-muted-dim">Not owned</span>
-                  ) : (
-                    `${ownedCount}×`
-                  )}
-                </span>
-              </div>
+              <DetailRow
+                label="Owned"
+                value={ownedCount === 0 ? 'Not owned' : `${ownedCount}x`}
+                valueColor={ownedCount === 0 ? '#A8A29E' : undefined}
+              />
             )}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-md border border-border bg-surface px-4 py-3">
+      <span className="text-xs uppercase tracking-wider text-muted">{label}</span>
+      <span className="text-sm font-medium" style={valueColor ? { color: valueColor } : undefined}>
+        {value}
+      </span>
     </div>
   );
 }

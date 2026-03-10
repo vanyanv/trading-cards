@@ -14,7 +14,6 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
 
   const router = useRouter();
 
-  // Deduplicate and count
   const cardCounts = useMemo(() => {
     const counts = new Map<string, { card: UserCard; count: number }>();
     for (const uc of userCards) {
@@ -29,7 +28,6 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
     return Array.from(counts.values());
   }, [userCards]);
 
-  // Get available sets
   const sets = useMemo(() => {
     const s = new Set<string>();
     for (const { card } of cardCounts) {
@@ -38,7 +36,6 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
     return Array.from(s).sort();
   }, [cardCounts]);
 
-  // Filter
   const filtered = useMemo(() => {
     return cardCounts.filter(({ card }) => {
       if (!card.card) return false;
@@ -89,7 +86,7 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
                     onClick={() => router.push(`/card/${card.card_id}`)}
                   />
                   {count > 1 && (
-                    <span className="absolute -right-1 -top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-black">
+                    <span className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-[10px] font-semibold text-background">
                       {count}
                     </span>
                   )}
@@ -107,8 +104,8 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
           </p>
           {userCards.length === 0 && (
             <a
-              href="/store"
-              className="mt-3 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition-all hover:bg-white/90 active:scale-[0.97]"
+              href="/"
+              className="mt-3 rounded-md bg-foreground px-5 py-2 text-sm font-medium text-background transition-opacity hover:opacity-80"
             >
               Open your first pack
             </a>

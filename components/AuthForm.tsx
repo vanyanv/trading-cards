@@ -36,7 +36,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         });
         if (error) throw error;
       }
-      router.push('/store');
+      router.push('/');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -50,7 +50,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       <div>
         <label
           htmlFor="email"
-          className="mb-1.5 block text-sm font-medium text-muted"
+          className="mb-1.5 block text-xs font-medium text-muted"
         >
           Email
         </label>
@@ -60,7 +60,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted-dim transition-colors focus:border-white/20 focus:outline-none"
+          className="w-full rounded-md border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted-dim transition-colors focus:border-foreground focus:outline-none"
           placeholder="you@example.com"
         />
       </div>
@@ -68,7 +68,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       <div>
         <label
           htmlFor="password"
-          className="mb-1.5 block text-sm font-medium text-muted"
+          className="mb-1.5 block text-xs font-medium text-muted"
         >
           Password
         </label>
@@ -79,13 +79,13 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={6}
-          className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted-dim transition-colors focus:border-white/20 focus:outline-none"
+          className="w-full rounded-md border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted-dim transition-colors focus:border-foreground focus:outline-none"
           placeholder="••••••••"
         />
       </div>
 
       {error && (
-        <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">
+        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
           {error}
         </p>
       )}
@@ -94,8 +94,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         type="submit"
         disabled={loading}
         className={cn(
-          'mt-2 flex items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-black transition-all',
-          'hover:bg-white/90 active:scale-[0.97]',
+          'mt-2 flex items-center justify-center rounded-md bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity',
+          'hover:opacity-80 active:opacity-70',
           'disabled:cursor-not-allowed disabled:opacity-50'
         )}
       >
