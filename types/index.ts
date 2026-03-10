@@ -35,6 +35,7 @@ export interface Pack {
   set_id: string;
   set_name: string;
   available: boolean;
+  open_count: number;
   created_at: string;
 }
 

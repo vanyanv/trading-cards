@@ -12,10 +12,10 @@ export const RARITY_CONFIG: Record<
   }
 > = {
   [Rarity.Common]: {
-    color: '#A8A29E',
-    glowColor: 'rgba(168, 162, 158, 0.1)',
-    borderClass: 'border-[#E7E5E4]',
-    badgeClass: 'text-[#A8A29E]',
+    color: '#9CA3AF',
+    glowColor: 'rgba(156, 163, 175, 0.1)',
+    borderClass: 'border-[#E5E7EB]',
+    badgeClass: 'text-[#9CA3AF]',
     label: 'Common',
     order: 0,
   },

@@ -1,22 +1,22 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Surfaces — warm, paper-like whites */
-  --color-background: #FAFAF9;
+  /* Surfaces — clean white canvas */
+  --color-background: #FFFFFF;
   --color-surface: #FFFFFF;
-  --color-surface-elevated: #F5F5F4;
-  --color-border: #E7E5E4;
-  --color-border-subtle: #F5F5F4;
-  --color-foreground: #1C1917;
-  --color-muted: #78716C;
-  --color-muted-dim: #A8A29E;
+  --color-surface-elevated: #F9FAFB;
+  --color-border: #E5E7EB;
+  --color-border-subtle: #F3F4F6;
+  --color-foreground: #111827;
+  --color-muted: #6B7280;
+  --color-muted-dim: #9CA3AF;
 
   /* Accent — black is the accent in minimalist design */
-  --color-accent: #1C1917;
-  --color-accent-hover: #44403C;
+  --color-accent: #111827;
+  --color-accent-hover: #374151;
 
-  /* Rarity colors — muted, used sparingly */
-  --color-rarity-common: #A8A29E;
+  /* Rarity colors — vibrant pops on white */
+  --color-rarity-common: #9CA3AF;
   --color-rarity-uncommon: #4ADE80;
   --color-rarity-rare: #FBBF24;
   --color-rarity-double: #60A5FA;
@@ -52,7 +52,7 @@
 }
 
 .skeleton {
-  background: #E7E5E4;
+  background: #E5E7EB;
   border-radius: 6px;
   animation: skeleton-pulse 1.8s ease-in-out infinite;
 }
@@ -65,8 +65,8 @@
 .spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid #E7E5E4;
-  border-top-color: #1C1917;
+  border: 2px solid #E5E7EB;
+  border-top-color: #111827;
   border-radius: 50%;
   animation: spin-ring 0.8s linear infinite;
 }
@@ -81,16 +81,16 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D6D3D1;
+  background: #D1D5DB;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #A8A29E;
+  background: #9CA3AF;
 }
 
 /* Focus ring */
 *:focus-visible {
-  outline: 1.5px solid #1C1917;
+  outline: 1.5px solid #111827;
   outline-offset: 2px;
 }

@@ -105,6 +105,9 @@ export async function POST(request: Request) {
       );
     }
 
+    // Increment open count for trending (fire-and-forget)
+    adminClient.rpc('increment_open_count', { pack_id: packId }).then();
+
     return NextResponse.json({
       cards: pulledCards,
       newBalance: balance.coins - pack.price_coins,

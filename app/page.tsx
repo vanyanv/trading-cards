@@ -1,35 +1,31 @@
 import { createClient } from '@/lib/supabase/server';
-import { HIT_SLOT_RATES } from '@/lib/constants';
-import type { Pack, Card } from '@/types';
-import { FeaturedPackHub } from '@/components/FeaturedPackHub';
+import type { Pack } from '@/types';
+import { HomeContent } from '@/components/HomeContent';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const supabase = await createClient();
 
-  const { data: packs } = await supabase
+  // Trending packs — top 6 by open count
+  const { data: trendingData } = await supabase
     .from('packs')
     .select('*')
     .eq('available', true)
-    .order('created_at', { ascending: false });
+    .order('open_count', { ascending: false })
+    .limit(6);
 
-  const { data: allCards } = await supabase
-    .from('cards')
+  // All packs for explore section
+  const { data: allData } = await supabase
+    .from('packs')
     .select('*')
-    .order('rarity', { ascending: true });
+    .eq('available', true)
+    .order('set_name', { ascending: true });
 
-  const allPacks = (packs || []) as Pack[];
-  const cards = (allCards || []) as Card[];
+  const trendingPacks = (trendingData || []) as Pack[];
+  const allPacks = (allData || []) as Pack[];
 
-  // Group cards by set_id
-  const cardsBySet: Record<string, Card[]> = {};
-  for (const card of cards) {
-    if (!cardsBySet[card.set_id]) cardsBySet[card.set_id] = [];
-    cardsBySet[card.set_id].push(card);
-  }
-
-  // Extract unique sets from packs
+  // Extract unique sets from all packs
   const sets = [
     ...new Map(
       allPacks.map((p) => [p.set_id, { id: p.set_id, name: p.set_name }])
@@ -37,11 +33,10 @@ export default async function HomePage() {
   ];
 
   return (
-    <FeaturedPackHub
-      packs={allPacks}
-      cardsBySet={cardsBySet}
+    <HomeContent
+      trendingPacks={trendingPacks}
+      allPacks={allPacks}
       sets={sets}
-      pullRates={HIT_SLOT_RATES}
     />
   );
 }
