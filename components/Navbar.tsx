@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/cn';
 import { Package } from 'lucide-react';
@@ -19,7 +19,15 @@ export function Navbar() {
   const [displayBalance, setDisplayBalance] = useState(0);
   const [unopenedCount, setUnopenedCount] = useState(0);
   const pathname = usePathname();
+  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const prefetchedRoutes = useRef(new Set<string>());
+
+  const prefetchRoute = useCallback((href: string) => {
+    if (prefetchedRoutes.current.has(href)) return;
+    prefetchedRoutes.current.add(href);
+    router.prefetch(href);
+  }, [router]);
 
   const fetchBalanceAndPacks = useCallback(async (userId: string) => {
     if (!supabase) return;
@@ -140,6 +148,7 @@ export function Navbar() {
 
           <Link
             href="/browse"
+            onMouseEnter={() => prefetchRoute('/browse')}
             className={cn(
               'text-sm transition-colors',
               pathname.startsWith('/browse')
@@ -152,6 +161,7 @@ export function Navbar() {
 
           <Link
             href="/community"
+            onMouseEnter={() => prefetchRoute('/community')}
             className={cn(
               'text-sm transition-colors',
               pathname.startsWith('/community')
@@ -164,6 +174,7 @@ export function Navbar() {
 
           <Link
             href="/stats"
+            onMouseEnter={() => prefetchRoute('/stats')}
             className={cn(
               'text-sm transition-colors',
               pathname.startsWith('/stats')
@@ -177,6 +188,7 @@ export function Navbar() {
           {user && (
             <Link
               href="/collection"
+              onMouseEnter={() => prefetchRoute('/collection')}
               className={cn(
                 'text-sm transition-colors',
                 pathname === '/collection'
