@@ -82,8 +82,8 @@ export function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-surface/85 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-        <div className="flex items-center gap-8">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-3 sm:px-6">
+        <div className="flex items-center gap-4 sm:gap-8">
           <Link
             href="/"
             className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight text-foreground"
@@ -91,7 +91,7 @@ export function Navbar() {
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-[11px] font-extrabold text-background">
               P
             </span>
-            PokePacks
+            <span className="hidden sm:inline">PokePacks</span>
           </Link>
 
           <Link
@@ -121,7 +121,7 @@ export function Navbar() {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <ThemeToggle />
           {user ? (
             <>
@@ -134,16 +134,16 @@ export function Navbar() {
               <UserMenu supabase={supabase!} userId={user.id} />
             </>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-3">
               <Link
                 href="/login"
-                className="text-sm text-muted transition-colors hover:text-foreground"
+                className="px-1 text-xs sm:text-sm text-muted transition-colors hover:text-foreground"
               >
                 Sign in
               </Link>
               <Link
                 href="/signup"
-                className="rounded-lg bg-foreground px-4 py-1.5 text-sm font-medium text-background transition-all hover:opacity-85 active:scale-[0.98]"
+                className="rounded-lg bg-foreground px-2.5 sm:px-4 py-1.5 text-xs sm:text-sm font-medium text-background transition-all hover:opacity-85 active:scale-[0.98]"
               >
                 Sign up
               </Link>
