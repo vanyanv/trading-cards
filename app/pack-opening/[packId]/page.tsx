@@ -56,6 +56,21 @@ export default function PackOpeningPage() {
     // Navbar will pick up the new count on next navigation
   }, []);
 
+  // Keep a stable ref to revealPack for cleanup
+  const revealPackRef = useRef(revealPack);
+  revealPackRef.current = revealPack;
+
+  // Auto-reveal on unmount if pack was opened but not yet finalized
+  useEffect(() => {
+    return () => {
+      const id = currentUnopenedIdRef.current;
+      if (id) {
+        revealPackRef.current(id);
+        currentUnopenedIdRef.current = null;
+      }
+    };
+  }, []);
+
   // Buy a new pack, then peek at the cards (don't reveal yet)
   const buyAndPeek = useCallback(async () => {
     const openRes = await fetch('/api/packs/open', {
