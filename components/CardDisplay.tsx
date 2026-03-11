@@ -55,7 +55,7 @@ export function CardDisplay({
         animate: { opacity: 1, y: 0 },
         transition: {
           duration: 0.4,
-          delay: index * 0.03,
+          delay: Math.min(index * 0.03, 0.6),
           ease: [0.16, 1, 0.3, 1] as const,
         },
       }

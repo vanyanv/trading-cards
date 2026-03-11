@@ -7,8 +7,10 @@ import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { CardDisplay } from './CardDisplay';
 import { CardListItem } from './CardListItem';
 import { CardTable } from './CardTable';
+import { ScrollSentinel } from './ScrollSentinel';
 import { FilterSidebar, emptyFilters } from './FilterSidebar';
 import { ViewModeToggle } from './ViewModeToggle';
+import { useInfiniteScroll } from '@/lib/hooks/useInfiniteScroll';
 import type { FilterState } from './FilterSidebar';
 import type { ViewMode } from './ViewModeToggle';
 import type { Card } from '@/types';
@@ -85,6 +87,8 @@ export function BrowseContent({
 
     return result;
   }, [cards, filters, sortBy]);
+
+  const { visibleItems, sentinelRef, hasMore } = useInfiniteScroll(filtered, 24);
 
   const ownedMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -203,31 +207,37 @@ export function BrowseContent({
               <p className="text-sm text-muted">No cards match your filters.</p>
             </div>
           ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              <AnimatePresence mode="popLayout">
-                {filtered.map((card, i) => (
-                  <motion.div key={card.id} layout>
-                    <CardDisplay
-                      card={card}
-                      index={i}
-                      owned={isLoggedIn ? (ownedCounts[card.id] ?? 0) : undefined}
-                      onClick={() => router.push(`/card/${card.id}`)}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                <AnimatePresence mode="popLayout">
+                  {visibleItems.map((card, i) => (
+                    <motion.div key={card.id} layout>
+                      <CardDisplay
+                        card={card}
+                        index={i}
+                        owned={isLoggedIn ? (ownedCounts[card.id] ?? 0) : undefined}
+                        onClick={() => router.push(`/card/${card.id}`)}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+              <ScrollSentinel sentinelRef={sentinelRef} hasMore={hasMore} />
+            </>
           ) : viewMode === 'list' ? (
-            <div className="space-y-0.5">
-              {filtered.map((card) => (
-                <CardListItem
-                  key={card.id}
-                  card={card}
-                  owned={isLoggedIn ? (ownedCounts[card.id] ?? 0) : undefined}
-                  onClick={() => router.push(`/card/${card.id}`)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="space-y-0.5">
+                {visibleItems.map((card) => (
+                  <CardListItem
+                    key={card.id}
+                    card={card}
+                    owned={isLoggedIn ? (ownedCounts[card.id] ?? 0) : undefined}
+                    onClick={() => router.push(`/card/${card.id}`)}
+                  />
+                ))}
+              </div>
+              <ScrollSentinel sentinelRef={sentinelRef} hasMore={hasMore} />
+            </>
           ) : (
             <CardTable
               cards={filtered}

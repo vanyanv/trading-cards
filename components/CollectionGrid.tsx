@@ -6,8 +6,10 @@ import { Search, SlidersHorizontal, X, HandCoins } from 'lucide-react';
 import { CardDisplay } from './CardDisplay';
 import { CardListItem } from './CardListItem';
 import { CardTable } from './CardTable';
+import { ScrollSentinel } from './ScrollSentinel';
 import { FilterSidebar, emptyFilters } from './FilterSidebar';
 import { ViewModeToggle } from './ViewModeToggle';
+import { useInfiniteScroll } from '@/lib/hooks/useInfiniteScroll';
 import { CollectionValueHeader } from './CollectionValueHeader';
 import { SellModeBar } from './SellModeBar';
 import { SellConfirmModal } from './SellConfirmModal';
@@ -158,6 +160,8 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
 
     return result;
   }, [cardCounts, filters, sortBy]);
+
+  const { visibleItems, sentinelRef, hasMore } = useInfiniteScroll(filtered, 24);
 
   // For table view
   const flatCards = useMemo(() => {
@@ -424,22 +428,52 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
         <div className={`flex-1 min-w-0 ${sellMode && selectedKeys.size > 0 ? 'pb-20' : ''}`}>
           {filtered.length > 0 ? (
             viewMode === 'grid' ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                <AnimatePresence mode="popLayout">
-                  {filtered.map(({ card, count }, i) => {
+              <>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                  <AnimatePresence mode="popLayout">
+                    {visibleItems.map(({ card, count }, i) => {
+                      const key = cardKey(card);
+                      const isSelected = selectedKeys.has(key);
+                      return card.card ? (
+                        <motion.div
+                          key={key}
+                          layout
+                          className="relative"
+                        >
+                          <CardDisplay
+                            card={card.card}
+                            isReverseHolo={card.is_reverse_holo}
+                            edition={card.edition}
+                            index={i}
+                            onClick={() => router.push(`/card/${card.card_id}`)}
+                            sellMode={sellMode}
+                            selected={isSelected}
+                            onSelect={() => toggleSelect(key)}
+                            sellPrice={computeSellPrice(card.card.price)}
+                            onQuickSell={() => handleQuickSell(key)}
+                          />
+                          {count > 1 && (
+                            <span className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white">
+                              {count}
+                            </span>
+                          )}
+                        </motion.div>
+                      ) : null;
+                    })}
+                  </AnimatePresence>
+                </div>
+                <ScrollSentinel sentinelRef={sentinelRef} hasMore={hasMore} />
+              </>
+            ) : viewMode === 'list' ? (
+              <>
+                <div className="space-y-0.5">
+                  {visibleItems.map(({ card, count }) => {
                     const key = cardKey(card);
                     const isSelected = selectedKeys.has(key);
                     return card.card ? (
-                      <motion.div
-                        key={key}
-                        layout
-                        className="relative"
-                      >
-                        <CardDisplay
+                      <div key={key} className="relative">
+                        <CardListItem
                           card={card.card}
-                          isReverseHolo={card.is_reverse_holo}
-                          edition={card.edition}
-                          index={i}
                           onClick={() => router.push(`/card/${card.card_id}`)}
                           sellMode={sellMode}
                           selected={isSelected}
@@ -447,41 +481,17 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
                           sellPrice={computeSellPrice(card.card.price)}
                           onQuickSell={() => handleQuickSell(key)}
                         />
-                        {count > 1 && (
-                          <span className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white">
-                            {count}
+                        {count > 1 && !sellMode && (
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-white">
+                            {count}x
                           </span>
                         )}
-                      </motion.div>
+                      </div>
                     ) : null;
                   })}
-                </AnimatePresence>
-              </div>
-            ) : viewMode === 'list' ? (
-              <div className="space-y-0.5">
-                {filtered.map(({ card, count }) => {
-                  const key = cardKey(card);
-                  const isSelected = selectedKeys.has(key);
-                  return card.card ? (
-                    <div key={key} className="relative">
-                      <CardListItem
-                        card={card.card}
-                        onClick={() => router.push(`/card/${card.card_id}`)}
-                        sellMode={sellMode}
-                        selected={isSelected}
-                        onSelect={() => toggleSelect(key)}
-                        sellPrice={computeSellPrice(card.card.price)}
-                        onQuickSell={() => handleQuickSell(key)}
-                      />
-                      {count > 1 && !sellMode && (
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-white">
-                          {count}x
-                        </span>
-                      )}
-                    </div>
-                  ) : null;
-                })}
-              </div>
+                </div>
+                <ScrollSentinel sentinelRef={sentinelRef} hasMore={hasMore} />
+              </>
             ) : (
               <CardTable
                 cards={flatCards}
