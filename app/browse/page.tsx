@@ -1,9 +1,12 @@
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/server';
 import { BrowseContent } from '@/components/BrowseContent';
 import { BrowsePacks } from '@/components/BrowsePacks';
+import { makeQueryClient } from '@/lib/query/queryClient';
+import { queryKeys } from '@/lib/query/queryKeys';
 import type { Card, Pack } from '@/types';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 export default async function BrowsePage({
   searchParams,
@@ -12,6 +15,7 @@ export default async function BrowsePage({
 }) {
   const { set } = await searchParams;
   const supabase = await createClient();
+  const queryClient = makeQueryClient();
 
   // If a set is selected, show its cards
   if (set) {
@@ -22,6 +26,9 @@ export default async function BrowsePage({
       .order('tcg_id');
 
     const allCards: Card[] = (cards || []) as Card[];
+
+    // Seed the React Query cache for client-side reuse
+    queryClient.setQueryData(queryKeys.cards.bySet(set), allCards);
 
     // Get set info from first card
     const setName = allCards[0]?.set_name || set;
@@ -46,13 +53,15 @@ export default async function BrowsePage({
     }
 
     return (
-      <BrowseContent
-        cards={allCards}
-        currentSet={set}
-        setName={setName}
-        ownedCounts={ownedCounts}
-        isLoggedIn={!!user}
-      />
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <BrowseContent
+          cards={allCards}
+          currentSet={set}
+          setName={setName}
+          ownedCounts={ownedCounts}
+          isLoggedIn={!!user}
+        />
+      </HydrationBoundary>
     );
   }
 
@@ -63,5 +72,12 @@ export default async function BrowsePage({
     .eq('available', true)
     .order('set_name');
 
-  return <BrowsePacks packs={(packs || []) as Pack[]} />;
+  const allPacks = (packs || []) as Pack[];
+  queryClient.setQueryData(queryKeys.packs.available, allPacks);
+
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <BrowsePacks packs={allPacks} />
+    </HydrationBoundary>
+  );
 }

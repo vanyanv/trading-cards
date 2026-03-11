@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, SlidersHorizontal, X, HandCoins } from 'lucide-react';
 import { CardDisplay } from './CardDisplay';
@@ -10,9 +11,12 @@ import { ScrollSentinel } from './ScrollSentinel';
 import { FilterSidebar, emptyFilters } from './FilterSidebar';
 import { ViewModeToggle } from './ViewModeToggle';
 import { useInfiniteScroll } from '@/lib/hooks/useInfiniteScroll';
+import { useImagePreloader } from '@/lib/hooks/useImagePreloader';
+import { usePrefetchCardOnHover } from '@/lib/hooks/usePrefetchOnHover';
 import { CollectionValueHeader } from './CollectionValueHeader';
 import { SellModeBar } from './SellModeBar';
 import { SellConfirmModal } from './SellConfirmModal';
+import { queryKeys } from '@/lib/query/queryKeys';
 import type { FilterState } from './FilterSidebar';
 import type { ViewMode } from './ViewModeToggle';
 import type { CollectionStats, RarityBreakdown } from './CollectionValueHeader';
@@ -30,7 +34,16 @@ function cardKey(card: UserCard): string {
   return `${card.card_id}-${card.is_reverse_holo}-${card.edition || 'none'}`;
 }
 
-export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
+export function CollectionGrid({ userCards: initialUserCards }: { userCards: UserCard[] }) {
+  const queryClient = useQueryClient();
+  const userId = initialUserCards[0]?.user_id;
+
+  const { data: userCards } = useQuery({
+    queryKey: userId ? queryKeys.collection.userCards(userId) : ['collection', 'userCards', 'anonymous'],
+    queryFn: async () => initialUserCards,
+    initialData: initialUserCards,
+  });
+
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -40,6 +53,7 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [quickSellKey, setQuickSellKey] = useState<string | null>(null);
   const router = useRouter();
+  const prefetchCard = usePrefetchCardOnHover();
 
   useEffect(() => {
     const saved = localStorage.getItem('collection-view-mode') as ViewMode | null;
@@ -194,6 +208,12 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
 
   const { visibleItems, sentinelRef, hasMore } = useInfiniteScroll(filtered, 24);
 
+  const imageUrls = useMemo(
+    () => filtered.map(({ card }) => card.card?.image_url).filter(Boolean) as string[],
+    [filtered],
+  );
+  useImagePreloader(imageUrls, visibleItems.length);
+
   // For table view
   const flatCards = useMemo(() => {
     return filtered.map(({ card }) => card.card).filter(Boolean) as NonNullable<UserCard['card']>[];
@@ -343,11 +363,14 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
       setSelectedKeys(new Set());
     }
 
-    // Refresh server data
+    // Invalidate cached collection data so it refetches
+    if (userId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.collection.userCards(userId) });
+    }
     router.refresh();
 
     return data;
-  }, [quickSellKey, selectedKeys, cardCounts, router]);
+  }, [quickSellKey, selectedKeys, cardCounts, router, queryClient, userId]);
 
   return (
     <div>
@@ -477,6 +500,7 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
                             edition={card.edition}
                             index={i}
                             onClick={() => router.push(`/card/${card.card_id}`)}
+                            onMouseEnter={() => prefetchCard(card.card_id)}
                             sellMode={sellMode}
                             selected={isSelected}
                             onSelect={() => toggleSelect(key)}
@@ -506,6 +530,7 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
                         <CardListItem
                           card={card.card}
                           onClick={() => router.push(`/card/${card.card_id}`)}
+                          onMouseEnter={() => prefetchCard(card.card_id)}
                           sellMode={sellMode}
                           selected={isSelected}
                           onSelect={() => toggleSelect(key)}

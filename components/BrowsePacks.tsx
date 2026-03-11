@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { DollarSign, ArrowRight, Package, Search, X, ChevronDown, Check } from 'lucide-react';
@@ -8,11 +9,21 @@ import Link from 'next/link';
 import type { Pack, Edition } from '@/types';
 import { groupPacks, type PackGroup } from '@/lib/packGroups';
 import { EDITION_CONFIG } from '@/lib/constants';
+import { queryKeys } from '@/lib/query/queryKeys';
+import { fetchAvailablePacks } from '@/lib/query/fetchers';
+import { usePrefetchPackOnHover } from '@/lib/hooks/usePrefetchOnHover';
 
 type SortOption = 'popular' | 'newest' | 'name' | 'price-asc' | 'price-desc';
 type PriceRange = 'all' | 'low' | 'mid' | 'high';
 
-export function BrowsePacks({ packs }: { packs: Pack[] }) {
+export function BrowsePacks({ packs: initialPacks }: { packs: Pack[] }) {
+  const { data: packs } = useQuery({
+    queryKey: queryKeys.packs.available,
+    queryFn: fetchAvailablePacks,
+    initialData: initialPacks,
+  });
+
+  const prefetchPack = usePrefetchPackOnHover();
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('popular');
   const [selectedSets, setSelectedSets] = useState<string[]>([]);
@@ -321,7 +332,7 @@ export function BrowsePacks({ packs }: { packs: Pack[] }) {
                   }}
                 >
                   <div className="pack-card-glow group overflow-hidden rounded-2xl border border-border bg-surface shadow-warm-sm">
-                    <Link href={`/pack/${pack.id}`}>
+                    <Link href={`/pack/${pack.id}`} onMouseEnter={() => prefetchPack(pack.id)}>
                       <div className="relative aspect-3/4 overflow-hidden bg-surface-elevated">
                         {pack.image_url ? (
                           <Image

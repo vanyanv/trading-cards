@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { CardDisplay } from './CardDisplay';
@@ -11,6 +12,10 @@ import { ScrollSentinel } from './ScrollSentinel';
 import { FilterSidebar, emptyFilters } from './FilterSidebar';
 import { ViewModeToggle } from './ViewModeToggle';
 import { useInfiniteScroll } from '@/lib/hooks/useInfiniteScroll';
+import { useImagePreloader } from '@/lib/hooks/useImagePreloader';
+import { usePrefetchCardOnHover } from '@/lib/hooks/usePrefetchOnHover';
+import { queryKeys } from '@/lib/query/queryKeys';
+import { fetchCardsBySet } from '@/lib/query/fetchers';
 import type { FilterState } from './FilterSidebar';
 import type { ViewMode } from './ViewModeToggle';
 import type { Card } from '@/types';
@@ -24,13 +29,20 @@ interface BrowseContentProps {
 }
 
 export function BrowseContent({
-  cards,
+  cards: initialCards,
   currentSet,
   setName,
   ownedCounts,
   isLoggedIn,
 }: BrowseContentProps) {
+  const { data: cards } = useQuery({
+    queryKey: queryKeys.cards.bySet(currentSet),
+    queryFn: () => fetchCardsBySet(currentSet),
+    initialData: initialCards,
+  });
+
   const router = useRouter();
+  const prefetchCard = usePrefetchCardOnHover();
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -89,6 +101,9 @@ export function BrowseContent({
   }, [cards, filters, sortBy]);
 
   const { visibleItems, sentinelRef, hasMore } = useInfiniteScroll(filtered, 24);
+
+  const imageUrls = useMemo(() => filtered.map((c) => c.image_url), [filtered]);
+  useImagePreloader(imageUrls, visibleItems.length);
 
   const ownedMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -217,6 +232,7 @@ export function BrowseContent({
                         index={i}
                         owned={isLoggedIn ? (ownedCounts[card.id] ?? 0) : undefined}
                         onClick={() => router.push(`/card/${card.id}`)}
+                        onMouseEnter={() => prefetchCard(card.id)}
                       />
                     </motion.div>
                   ))}
@@ -233,6 +249,7 @@ export function BrowseContent({
                     card={card}
                     owned={isLoggedIn ? (ownedCounts[card.id] ?? 0) : undefined}
                     onClick={() => router.push(`/card/${card.id}`)}
+                    onMouseEnter={() => prefetchCard(card.id)}
                   />
                 ))}
               </div>

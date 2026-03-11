@@ -20,6 +20,7 @@ export function CardListItem({
   onSelect,
   sellPrice,
   onQuickSell,
+  onMouseEnter,
 }: {
   card: Card;
   onClick?: () => void;
@@ -29,6 +30,7 @@ export function CardListItem({
   onSelect?: () => void;
   sellPrice?: number;
   onQuickSell?: () => void;
+  onMouseEnter?: () => void;
 }) {
   const isUnowned = owned !== undefined && owned === 0;
   const cardNumber = getCardNumber(card.tcg_id);
@@ -38,6 +40,7 @@ export function CardListItem({
       role="button"
       tabIndex={0}
       onClick={sellMode ? onSelect : onClick}
+      onMouseEnter={onMouseEnter}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (sellMode ? onSelect : onClick)?.(); } }}
       className={cn(
         'group flex w-full items-center gap-4 rounded-lg border px-3 py-2 text-left transition-all cursor-pointer',

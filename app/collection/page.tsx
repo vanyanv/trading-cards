@@ -1,13 +1,17 @@
 import Link from 'next/link';
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/server';
 import { CollectionGrid } from '@/components/CollectionGrid';
 import { UnopenedPacksSection } from '@/components/UnopenedPacksSection';
+import { makeQueryClient } from '@/lib/query/queryClient';
+import { queryKeys } from '@/lib/query/queryKeys';
 import type { UserCard, UnopenedPack } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CollectionPage() {
   const supabase = await createClient();
+  const queryClient = makeQueryClient();
 
   const {
     data: { user },
@@ -51,18 +55,22 @@ export default async function CollectionPage() {
     pack: (Array.isArray(up.pack) ? up.pack[0] : up.pack) as UnopenedPack['pack'],
   }));
 
+  queryClient.setQueryData(queryKeys.collection.userCards(user.id), shaped);
+
   return (
-    <div className="mx-auto max-w-7xl px-6 py-12">
-      <div className="mb-4 flex items-center justify-end">
-        <Link
-          href="/pokedex"
-          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
-        >
-          View Pokédex →
-        </Link>
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <div className="mx-auto max-w-7xl px-6 py-12">
+        <div className="mb-4 flex items-center justify-end">
+          <Link
+            href="/pokedex"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
+          >
+            View Pokédex →
+          </Link>
+        </div>
+        <UnopenedPacksSection packs={shapedPacks} />
+        <CollectionGrid userCards={shaped} />
       </div>
-      <UnopenedPacksSection packs={shapedPacks} />
-      <CollectionGrid userCards={shaped} />
-    </div>
+    </HydrationBoundary>
   );
 }

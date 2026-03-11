@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Bricolage_Grotesque, DM_Sans } from 'next/font/google';
 import { Navbar } from '@/components/Navbar';
+import { QueryProvider } from '@/lib/query/QueryProvider';
 import './globals.css';
 
 const heading = Bricolage_Grotesque({
@@ -40,8 +41,10 @@ export default function RootLayout({
         className={`${heading.variable} ${body.variable} font-body bg-background text-foreground antialiased`}
       >
         <div className="grain" />
-        <Navbar />
-        <main className="relative">{children}</main>
+        <QueryProvider>
+          <Navbar />
+          <main className="relative">{children}</main>
+        </QueryProvider>
       </body>
     </html>
   );

@@ -33,6 +33,7 @@ export function CardDisplay({
   sellPrice,
   onQuickSell,
   edition,
+  onMouseEnter,
 }: {
   card: Card;
   isReverseHolo?: boolean;
@@ -47,6 +48,7 @@ export function CardDisplay({
   sellPrice?: number;
   onQuickSell?: () => void;
   edition?: Edition | null;
+  onMouseEnter?: () => void;
 }) {
   const Wrapper = animate ? motion.div : 'div';
   const animateProps = animate
@@ -69,6 +71,7 @@ export function CardDisplay({
       {...animateProps}
       className={cn('group cursor-pointer', isUnowned && 'opacity-45', className)}
       onClick={sellMode ? onSelect : onClick}
+      onMouseEnter={onMouseEnter}
     >
       <div className={cn(
         'overflow-hidden rounded-xl border bg-surface shadow-warm-sm transition-all duration-300 hover:shadow-warm-md',
