@@ -2,10 +2,11 @@
 
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, DollarSign, Layers, Hash, Crown, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { RARITY_CONFIG, EDITION_CONFIG } from '@/lib/constants';
+import { RARITY_CONFIG, EDITION_CONFIG, EDITION_ORDER } from '@/lib/constants';
 import { rarityOrder } from '@/lib/rarity';
 import { RarityBadge } from './RarityBadge';
 import type { Pack, Card, Rarity, Edition } from '@/types';
@@ -17,14 +18,32 @@ export function PackDetail({
   cards,
   pullRates,
   isAuthenticated,
+  editionVariants = [],
 }: {
   pack: Pack;
   cards: Card[];
   pullRates: { rarity: Rarity; weight: number }[];
   isAuthenticated: boolean;
+  editionVariants?: Pack[];
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('rates');
   const [rarityFilter, setRarityFilter] = useState('all');
+  const [selectedPack, setSelectedPack] = useState<Pack>(pack);
+
+  // Sort edition variants by canonical order
+  const sortedEditions = useMemo(() => {
+    if (editionVariants.length <= 1) return editionVariants;
+    return [...editionVariants].sort((a, b) => {
+      const ai = EDITION_ORDER.indexOf(a.edition as Edition);
+      const bi = EDITION_ORDER.indexOf(b.edition as Edition);
+      return ai - bi;
+    });
+  }, [editionVariants]);
+
+  const handleEditionSelect = (variant: Pack) => {
+    setSelectedPack(variant);
+    window.history.replaceState(null, '', `/pack/${variant.id}`);
+  };
 
   const rarities = [...new Set(cards.map((c) => c.rarity))];
   const filteredCards =
@@ -84,11 +103,14 @@ export function PackDetail({
         <div className="flex flex-col gap-10 sm:flex-row sm:items-start">
           {/* Pack image */}
           <div className="shrink-0 self-center sm:self-start">
-            <div className="h-80 w-56 overflow-hidden rounded-2xl border border-border bg-surface-elevated shadow-warm-md">
-              <img
-                src={pack.featured_card_image || pack.image_url}
-                alt={pack.name}
-                className={`h-full w-full ${pack.featured_card_image ? 'object-cover' : 'object-contain p-4'}`}
+            <div className="relative h-80 w-56 overflow-hidden rounded-2xl border border-border bg-surface-elevated shadow-warm-md">
+              <Image
+                src={selectedPack.featured_card_image || selectedPack.image_url}
+                alt={selectedPack.name}
+                fill
+                sizes="224px"
+                priority
+                className={`h-full w-full ${selectedPack.featured_card_image ? 'object-cover' : 'object-contain p-4'}`}
               />
             </div>
           </div>
@@ -97,35 +119,66 @@ export function PackDetail({
           <div className="flex flex-1 flex-col">
             <div className="flex items-center gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-dim">
-                {pack.set_name}
+                {selectedPack.set_name}
               </p>
-              {pack.edition && (
+              {selectedPack.edition && sortedEditions.length <= 1 && (
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${EDITION_CONFIG[pack.edition as Edition].badgeClass}`}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${EDITION_CONFIG[selectedPack.edition as Edition].badgeClass}`}
                 >
-                  {EDITION_CONFIG[pack.edition as Edition].label}
+                  {EDITION_CONFIG[selectedPack.edition as Edition].label}
                 </span>
               )}
             </div>
             <h1 className="mt-2 font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              {pack.name}
+              {selectedPack.name}
             </h1>
-            {pack.description && (
+            {selectedPack.description && (
               <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">
-                {pack.description}
+                {selectedPack.description}
               </p>
+            )}
+
+            {/* Edition selector pills */}
+            {sortedEditions.length > 1 && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {sortedEditions.map((variant) => {
+                  const config = EDITION_CONFIG[variant.edition as Edition];
+                  const isActive = variant.id === selectedPack.id;
+                  return (
+                    <button
+                      key={variant.id}
+                      onClick={() => handleEditionSelect(variant)}
+                      className={cn(
+                        'relative rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all',
+                        isActive
+                          ? config.badgeClass
+                          : 'border border-border bg-surface text-muted hover:border-muted-dim hover:text-foreground'
+                      )}
+                    >
+                      {config.label}
+                      {isActive && (
+                        <motion.div
+                          layoutId="edition-pill"
+                          className="absolute inset-0 rounded-full ring-2 ring-accent/30"
+                          transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             )}
 
             {/* Stats row */}
             <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-muted">
               <span className="flex items-center gap-1.5 font-bold text-foreground">
                 <DollarSign className="h-4 w-4 text-accent" />
-                {pack.price_usd?.toFixed(2) ?? '—'}
+                {selectedPack.price_usd?.toFixed(2) ?? '—'}
               </span>
               <span className="h-4 w-px bg-border" />
               <span className="flex items-center gap-1.5">
                 <Layers className="h-3.5 w-3.5 text-muted-dim" />
-                {pack.cards_per_pack} cards per pack
+                {selectedPack.cards_per_pack} cards per pack
               </span>
               <span className="h-4 w-px bg-border" />
               <span className="flex items-center gap-1.5">
@@ -146,7 +199,7 @@ export function PackDetail({
             {/* CTA with rarity glow */}
             {isAuthenticated ? (
               <Link
-                href={`/pack-opening/${pack.id}`}
+                href={`/pack-opening/${selectedPack.id}`}
                 className="group mt-8 inline-flex w-fit items-center justify-center rounded-xl bg-foreground px-8 py-3 text-sm font-bold text-background transition-all hover:scale-[1.02] active:scale-[0.98]"
                 style={{
                   animation: 'cta-glow 2.5s ease-in-out infinite',
@@ -364,12 +417,13 @@ function CardsSection({
             href={`/card/${card.id}`}
             className="group overflow-hidden rounded-xl border border-border bg-surface shadow-warm-sm transition-all hover:shadow-warm-md hover:border-border"
           >
-            <div className="aspect-[2.5/3.5] overflow-hidden">
-              <img
+            <div className="relative aspect-[2.5/3.5] overflow-hidden">
+              <Image
                 src={card.image_url}
                 alt={card.name}
+                fill
+                sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, (max-width: 1024px) 16vw, 12.5vw"
                 className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.03]"
-                loading="lazy"
               />
             </div>
             <div className="p-2">

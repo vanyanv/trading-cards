@@ -35,6 +35,9 @@ export const EDITION_CONFIG: Record<
   },
 };
 
+// Canonical edition display order
+export const EDITION_ORDER: Edition[] = ['1st-edition', 'shadowless', 'unlimited'];
+
 // Sets that received 1st Edition print runs
 export const FIRST_EDITION_SET_IDS = [
   'base1', 'base2', 'base3', 'base5',

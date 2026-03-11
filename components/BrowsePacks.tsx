@@ -2,9 +2,12 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import { DollarSign, ArrowRight, Package, Search, X, ChevronDown, Check } from 'lucide-react';
 import Link from 'next/link';
-import type { Pack } from '@/types';
+import type { Pack, Edition } from '@/types';
+import { groupPacks, type PackGroup } from '@/lib/packGroups';
+import { EDITION_CONFIG } from '@/lib/constants';
 
 type SortOption = 'popular' | 'newest' | 'name' | 'price-asc' | 'price-desc';
 type PriceRange = 'all' | 'low' | 'mid' | 'high';
@@ -91,7 +94,7 @@ export function BrowsePacks({ packs }: { packs: Pack[] }) {
       });
     }
 
-    return [...result].sort((a, b) => {
+    const sorted = [...result].sort((a, b) => {
       switch (sortBy) {
         case 'name':
           return a.name.localeCompare(b.name);
@@ -106,6 +109,8 @@ export function BrowsePacks({ packs }: { packs: Pack[] }) {
           return b.open_count - a.open_count;
       }
     });
+
+    return groupPacks(sorted);
   }, [packs, search, selectedSets, priceRange, priceThresholds, sortBy]);
 
   const isFiltered =
@@ -279,8 +284,8 @@ export function BrowsePacks({ packs }: { packs: Pack[] }) {
       {isFiltered && (
         <div className="mb-4 flex items-center gap-3">
           <p className="text-sm text-muted">
-            Showing {filteredPacks.length} of {packs.length} pack
-            {packs.length !== 1 ? 's' : ''}
+            Showing {filteredPacks.length} of {groupPacks(packs).length} pack
+            {groupPacks(packs).length !== 1 ? 's' : ''}
           </p>
           <button
             onClick={clearFilters}
@@ -300,70 +305,95 @@ export function BrowsePacks({ packs }: { packs: Pack[] }) {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           <AnimatePresence mode="popLayout">
-            {filteredPacks.map((pack, i) => (
-              <motion.div
-                key={pack.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{
-                  duration: 0.45,
-                  delay: i * 0.04,
-                  ease: [0.16, 1, 0.3, 1],
-                }}
-              >
-                <div className="pack-card-glow group overflow-hidden rounded-2xl border border-border bg-surface shadow-warm-sm">
-                  <Link href={`/pack/${pack.id}`}>
-                    <div className="relative aspect-[3/4] overflow-hidden bg-surface-elevated">
-                      {pack.image_url ? (
-                        <img
-                          src={pack.image_url}
-                          alt={pack.name}
-                          className="h-full w-full object-contain p-5 transition-transform duration-500 ease-out group-hover:scale-[1.07]"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <Package className="h-12 w-12 text-muted-dim" />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-4 pb-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-dim">
-                        {pack.set_name}
-                      </p>
-                      <h3 className="mt-1.5 font-heading text-sm font-bold leading-tight text-foreground">
-                        {pack.name}
-                      </h3>
-
-                      <div className="mt-3.5 flex items-center justify-between border-t border-border-subtle pt-3">
-                        <div className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-                          <DollarSign className="h-3.5 w-3.5 text-accent" />
-                          <span>{pack.price_usd?.toFixed(2) ?? '—'}</span>
-                        </div>
-
-                        <span className="flex items-center gap-1 text-[11px] font-semibold text-muted-dim transition-colors group-hover:text-accent">
-                          Open
-                          <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-                        </span>
+            {filteredPacks.map((group, i) => {
+              const pack = group.displayPack;
+              return (
+                <motion.div
+                  key={group.groupKey}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{
+                    duration: 0.45,
+                    delay: i * 0.04,
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
+                >
+                  <div className="pack-card-glow group overflow-hidden rounded-2xl border border-border bg-surface shadow-warm-sm">
+                    <Link href={`/pack/${pack.id}`}>
+                      <div className="relative aspect-3/4 overflow-hidden bg-surface-elevated">
+                        {pack.image_url ? (
+                          <Image
+                            src={pack.image_url}
+                            alt={pack.name}
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                            className="h-full w-full object-contain p-5 transition-transform duration-500 ease-out group-hover:scale-[1.07]"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <Package className="h-12 w-12 text-muted-dim" />
+                          </div>
+                        )}
+                        {/* Edition dots indicator */}
+                        {group.hasMultipleEditions && (
+                          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 backdrop-blur-sm">
+                            {group.editionVariants.map((v) => (
+                              <div
+                                key={v.id}
+                                className="h-2 w-2 rounded-full ring-1 ring-white/20"
+                                style={{ backgroundColor: EDITION_CONFIG[v.edition as Edition].color }}
+                                title={EDITION_CONFIG[v.edition as Edition].label}
+                              />
+                            ))}
+                            <span className="ml-0.5 text-[9px] font-semibold text-white/80">
+                              {group.editionVariants.length} editions
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  </Link>
 
-                  <div className="px-4 pb-3">
-                    <Link
-                      href={`/browse?set=${pack.set_id}`}
-                      className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-dim transition-colors hover:text-accent"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Package className="h-3 w-3" />
-                      View cards
+                      <div className="p-4 pb-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-dim">
+                          {pack.set_name}
+                        </p>
+                        <h3 className="mt-1.5 font-heading text-sm font-bold leading-tight text-foreground">
+                          {pack.name}
+                        </h3>
+
+                        <div className="mt-3.5 flex items-center justify-between border-t border-border-subtle pt-3">
+                          <div className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                            <DollarSign className="h-3.5 w-3.5 text-accent" />
+                            <span>
+                              {group.hasMultipleEditions
+                                ? `${Math.min(...group.editionVariants.map((v) => v.price_usd ?? 0)).toFixed(2)}+`
+                                : pack.price_usd?.toFixed(2) ?? '—'}
+                            </span>
+                          </div>
+
+                          <span className="flex items-center gap-1 text-[11px] font-semibold text-muted-dim transition-colors group-hover:text-accent">
+                            Open
+                            <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+                          </span>
+                        </div>
+                      </div>
                     </Link>
+
+                    <div className="px-4 pb-3">
+                      <Link
+                        href={`/browse?set=${pack.set_id}`}
+                        className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-dim transition-colors hover:text-accent"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Package className="h-3 w-3" />
+                        View cards
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
       )}

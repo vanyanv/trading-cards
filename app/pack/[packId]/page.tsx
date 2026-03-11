@@ -50,6 +50,24 @@ export default async function PackDetailPage({
 
   const { data: cards } = await cardsQuery;
 
+  // Fetch sibling edition variants for the same set
+  let editionVariants: Pack[] = [];
+  if (typedPack.edition) {
+    let siblingsQuery = supabase
+      .from('packs')
+      .select('*')
+      .eq('set_id', typedPack.set_id)
+      .eq('available', true)
+      .not('edition', 'is', null);
+
+    if (typedPack.booster_id) {
+      siblingsQuery = siblingsQuery.eq('booster_id', typedPack.booster_id);
+    }
+
+    const { data: siblings } = await siblingsQuery;
+    editionVariants = (siblings || []) as Pack[];
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
 
   const isTCGP = typedPack.cards_per_pack === 5;
@@ -60,6 +78,7 @@ export default async function PackDetailPage({
       cards={(cards || []) as Card[]}
       pullRates={isTCGP ? TCGP_HIT_SLOT_RATES : HIT_SLOT_RATES}
       isAuthenticated={!!user}
+      editionVariants={editionVariants}
     />
   );
 }
