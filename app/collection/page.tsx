@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { CollectionGrid } from '@/components/CollectionGrid';
-import type { UserCard } from '@/types';
+import { UnopenedPacksSection } from '@/components/UnopenedPacksSection';
+import type { UserCard, UnopenedPack } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,11 +21,17 @@ export default async function CollectionPage() {
     );
   }
 
-  const { data: userCards } = await supabase
-    .from('user_cards')
-    .select('*, card:cards(*)')
-    .eq('user_id', user.id)
-    .order('obtained_at', { ascending: false });
+  const [{ data: userCards }, { data: unopenedPacks }] = await Promise.all([
+    supabase
+      .from('user_cards')
+      .select('*, card:cards(*)')
+      .eq('user_id', user.id)
+      .order('obtained_at', { ascending: false }),
+    supabase
+      .from('unopened_packs')
+      .select('id, pack_id, purchased_at, pack:packs(name, image_url, cards_per_pack, edition, set_name)')
+      .order('purchased_at', { ascending: false }),
+  ]);
 
   const shaped: UserCard[] = (userCards || []).map((uc) => ({
     id: uc.id,
@@ -37,6 +44,13 @@ export default async function CollectionPage() {
     pack_opened_from: uc.pack_opened_from,
   }));
 
+  const shapedPacks: UnopenedPack[] = (unopenedPacks || []).map((up) => ({
+    id: up.id,
+    pack_id: up.pack_id,
+    purchased_at: up.purchased_at,
+    pack: (Array.isArray(up.pack) ? up.pack[0] : up.pack) as UnopenedPack['pack'],
+  }));
+
   return (
     <div className="mx-auto max-w-7xl px-6 py-12">
       <div className="mb-4 flex items-center justify-end">
@@ -47,6 +61,7 @@ export default async function CollectionPage() {
           View Pokédex →
         </Link>
       </div>
+      <UnopenedPacksSection packs={shapedPacks} />
       <CollectionGrid userCards={shaped} />
     </div>
   );

@@ -293,6 +293,7 @@ export function PackOpeningAnimation({
   packImage,
   packCost,
   onOpenAnother,
+  onComplete,
   edition,
 }: {
   cards: PulledCard[];
@@ -300,6 +301,7 @@ export function PackOpeningAnimation({
   packImage: string;
   packCost?: number;
   onOpenAnother: () => void;
+  onComplete?: () => void;
   edition?: Edition | null;
 }) {
   const [phase, setPhase] = useState<Phase>('sealed');
@@ -350,6 +352,15 @@ export function PackOpeningAnimation({
       timersRef.current.forEach(clearTimeout);
     };
   }, []);
+
+  // Fire onComplete when animation reaches the complete phase
+  const onCompleteCalledRef = useRef(false);
+  useEffect(() => {
+    if (phase === 'complete' && onComplete && !onCompleteCalledRef.current) {
+      onCompleteCalledRef.current = true;
+      onComplete();
+    }
+  }, [phase, onComplete]);
 
   const addTimer = useCallback((fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms);

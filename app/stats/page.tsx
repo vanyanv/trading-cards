@@ -5,13 +5,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function StatsPage() {
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   // Fetch global stats and community data in parallel
-  const [globalRes, pullStatsRes, recentPullsRes, luckRes, packBreakdownRes] = await Promise.all([
+  const [globalRes, pullStatsRes, recentPullsRes, packsRes] = await Promise.all([
     supabase.rpc('get_global_pull_summary'),
     supabase
       .from('pull_stats')
@@ -28,8 +23,11 @@ export default async function StatsPage() {
       ])
       .order('obtained_at', { ascending: false })
       .limit(20),
-    user ? supabase.rpc('get_user_luck_stats', { p_user_id: user.id }) : Promise.resolve({ data: null }),
-    user ? supabase.rpc('get_user_pack_breakdown', { p_user_id: user.id }) : Promise.resolve({ data: null }),
+    supabase
+      .from('packs')
+      .select('id, name, image_url, set_id, set_name')
+      .eq('available', true)
+      .order('open_count', { ascending: false }),
   ]);
 
   const globalSummary = globalRes.data as { total_packs_opened: number; total_cards_pulled: number; total_users: number } | null;
@@ -39,6 +37,15 @@ export default async function StatsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recentPullsRaw = (recentPullsRes.data ?? []) as any[];
 
+  // Build pack lookup by set_id (first pack per set for image/name)
+  const packsRaw = (packsRes.data ?? []) as { id: string; name: string; image_url: string; set_id: string; set_name: string }[];
+  const packsBySet = new Map<string, { packId: string; packName: string; packImageUrl: string; setName: string }[]>();
+  for (const pack of packsRaw) {
+    const existing = packsBySet.get(pack.set_id) ?? [];
+    existing.push({ packId: pack.id, packName: pack.name, packImageUrl: pack.image_url, setName: pack.set_name });
+    packsBySet.set(pack.set_id, existing);
+  }
+
   // Group pull stats by set
   const setStatsMap = new Map<string, { rarity: string; pull_count: number; total_opens: number }[]>();
   for (const row of pullStatsRaw) {
@@ -47,13 +54,18 @@ export default async function StatsPage() {
     setStatsMap.set(row.set_id, existing);
   }
 
-  // Get top sets by total opens
+  // Get top sets by total opens, enriched with pack info
   const topSets = [...setStatsMap.entries()]
-    .map(([setId, stats]) => ({
-      setId,
-      totalOpens: Math.max(...stats.map((s) => s.total_opens)),
-      stats,
-    }))
+    .map(([setId, stats]) => {
+      const packs = packsBySet.get(setId) ?? [];
+      return {
+        setId,
+        totalOpens: Math.max(...stats.map((s) => s.total_opens)),
+        stats,
+        setName: packs[0]?.setName ?? setId,
+        packs: packs.map((p) => ({ packId: p.packId, packName: p.packName, packImageUrl: p.packImageUrl })),
+      };
+    })
     .sort((a, b) => b.totalOpens - a.totalOpens)
     .slice(0, 10);
 
@@ -80,8 +92,6 @@ export default async function StatsPage() {
         globalSummary={globalSummary ?? { total_packs_opened: 0, total_cards_pulled: 0, total_users: 0 }}
         topSets={topSets}
         recentPulls={recentPulls}
-        userLuckStats={luckRes.data ? (luckRes.data as { rarity: string; user_count: number; user_total: number; community_rate: number }[]) : undefined}
-        userPackBreakdown={packBreakdownRes.data ? (packBreakdownRes.data as { pack_id: string; pack_name: string; pack_image_url: string; set_name: string; times_opened: number }[]) : undefined}
       />
     </div>
   );

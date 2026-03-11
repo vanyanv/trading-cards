@@ -331,6 +331,11 @@ h1, h2, h3, h4, h5, h6 {
   animation: glow-pulse 0.8s ease-in-out infinite;
 }
 
+@keyframes unopened-glow {
+  0%, 100% { box-shadow: 0 0 0 rgba(234,179,8,0), inset 0 0 0 rgba(234,179,8,0); border-color: rgba(234,179,8,0.2); }
+  50% { box-shadow: 0 0 30px rgba(234,179,8,0.4), 0 0 60px rgba(234,179,8,0.15), inset 0 0 20px rgba(234,179,8,0.05); border-color: rgba(234,179,8,0.5); }
+}
+
 /* CTA glow pulse — uses --glow-color custom property */
 @keyframes cta-glow {
   0%, 100% { box-shadow: 0 0 20px color-mix(in srgb, var(--glow-color, #C8972E) 20%, transparent), 0 0 40px color-mix(in srgb, var(--glow-color, #C8972E) 10%, transparent); }

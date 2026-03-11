@@ -233,6 +233,19 @@ export interface PokedexLeaderboardEntry {
   sets_started: number;
 }
 
+export interface UnopenedPack {
+  id: string;
+  pack_id: string;
+  purchased_at: string;
+  pack?: {
+    name: string;
+    image_url: string;
+    cards_per_pack: number;
+    edition?: Edition | null;
+    set_name?: string;
+  };
+}
+
 export interface PokedexCard {
   card_id: string;
   card_name: string;

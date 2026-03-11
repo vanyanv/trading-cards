@@ -1,21 +1,47 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/cn';
-import { DollarSign } from 'lucide-react';
+import { Package } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserMenu } from '@/components/UserMenu';
 import type { User } from '@supabase/supabase-js';
+
+const formatBalance = (amount: number) =>
+  amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [displayBalance, setDisplayBalance] = useState(0);
+  const [unopenedCount, setUnopenedCount] = useState(0);
   const pathname = usePathname();
   const supabase = useMemo(() => createClient(), []);
+
+  const fetchBalanceAndPacks = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    const [balanceRes, packsRes] = await Promise.all([
+      supabase
+        .from('user_balances')
+        .select('balance_usd')
+        .eq('user_id', userId)
+        .single(),
+      supabase
+        .from('unopened_packs')
+        .select('id', { count: 'exact', head: true })
+    ]);
+
+    if (balanceRes.data) {
+      setBalance(balanceRes.data.balance_usd);
+      setDisplayBalance(balanceRes.data.balance_usd);
+    }
+    if (packsRes.count != null) {
+      setUnopenedCount(packsRes.count);
+    }
+  }, [supabase]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -27,15 +53,7 @@ export function Navbar() {
       setUser(user);
 
       if (user) {
-        const { data } = await supabase
-          .from('user_balances')
-          .select('balance_usd')
-          .eq('user_id', user.id)
-          .single();
-        if (data) {
-          setBalance(data.balance_usd);
-          setDisplayBalance(data.balance_usd);
-        }
+        fetchBalanceAndPacks(user.id);
       }
     };
 
@@ -45,12 +63,26 @@ export function Navbar() {
       data: { subscription },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) setBalance(null);
+      const newUser = session?.user ?? null;
+      setUser(newUser);
+      if (newUser) {
+        // Fetch balance + packs immediately on login
+        fetchBalanceAndPacks(newUser.id);
+      } else {
+        setBalance(null);
+        setUnopenedCount(0);
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase]);
+  }, [supabase, fetchBalanceAndPacks]);
+
+  // Refetch balance + packs on navigation (e.g. after leaving pack-opening page)
+  useEffect(() => {
+    if (user) {
+      fetchBalanceAndPacks(user.id);
+    }
+  }, [pathname, user, fetchBalanceAndPacks]);
 
   // Listen for balance updates from sell/buy flows
   useEffect(() => {
@@ -60,6 +92,18 @@ export function Navbar() {
     };
     window.addEventListener('balance-update', handler);
     return () => window.removeEventListener('balance-update', handler);
+  }, []);
+
+  // Listen for unopened packs count updates
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.delta != null) {
+        setUnopenedCount((prev) => Math.max(0, prev + detail.delta));
+      }
+    };
+    window.addEventListener('unopened-packs-update', handler);
+    return () => window.removeEventListener('unopened-packs-update', handler);
   }, []);
 
   useEffect(() => {
@@ -145,14 +189,37 @@ export function Navbar() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3">
           <ThemeToggle />
           {user ? (
             <>
+              {/* Unopened packs badge */}
+              {unopenedCount > 0 && (
+                <Link
+                  href="/collection"
+                  className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold transition-colors hover:opacity-80"
+                  style={{
+                    backgroundColor: 'rgba(234,179,8,0.12)',
+                    color: '#eab308',
+                    border: '1px solid rgba(234,179,8,0.2)',
+                  }}
+                >
+                  <Package className="h-3.5 w-3.5" />
+                  <span className="tabular-nums">{unopenedCount}</span>
+                </Link>
+              )}
+
+              {/* Balance display */}
               {balance !== null && (
-                <div className="flex items-center gap-1 rounded-full bg-accent-soft px-3 py-1 text-sm">
-                  <DollarSign className="h-3.5 w-3.5 text-accent" />
-                  <span className="tabular-nums font-semibold text-accent">{displayBalance.toFixed(2)}</span>
+                <div
+                  className="flex items-center rounded-full px-3 py-1 text-sm font-semibold tabular-nums"
+                  style={{
+                    backgroundColor: 'rgba(34,197,94,0.1)',
+                    color: '#4ade80',
+                    border: '1px solid rgba(34,197,94,0.2)',
+                  }}
+                >
+                  ${formatBalance(displayBalance)}
                 </div>
               )}
               <UserMenu supabase={supabase!} userId={user.id} />

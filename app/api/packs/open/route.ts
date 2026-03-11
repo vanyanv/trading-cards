@@ -85,21 +85,48 @@ export async function POST(request: Request) {
     // Open pack (roll cards)
     const pulledCards = await openPack(adminClient, pack.set_id, pack.booster_id, pack.cards_per_pack, pack.edition, effectiveRates);
 
-    // Insert pulled cards into user_cards
-    const userCardRows = pulledCards.map((card) => ({
-      user_id: user.id,
+    // Insert into unopened_packs (metadata)
+    const { data: unopenedPack, error: packInsertError } = await adminClient
+      .from('unopened_packs')
+      .insert({
+        user_id: user.id,
+        pack_id: packId,
+      })
+      .select('id')
+      .single();
+
+    if (packInsertError || !unopenedPack) {
+      // Refund on failure
+      await adminClient
+        .from('user_balances')
+        .update({
+          balance_usd: balance.balance_usd,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
+
+      return NextResponse.json(
+        { error: 'Failed to save pack' },
+        { status: 500 }
+      );
+    }
+
+    // Insert card data into unopened_pack_cards (server-only, never sent to client)
+    const cardRows = pulledCards.map((card) => ({
+      unopened_pack_id: unopenedPack.id,
       card_id: card.id,
       is_reverse_holo: card.is_reverse_holo,
       edition: pack.edition || null,
-      pack_opened_from: packId,
+      slot_number: card.slot_number,
     }));
 
-    const { error: insertError } = await adminClient
-      .from('user_cards')
-      .insert(userCardRows);
+    const { error: cardsInsertError } = await adminClient
+      .from('unopened_pack_cards')
+      .insert(cardRows);
 
-    if (insertError) {
-      // Refund on failure
+    if (cardsInsertError) {
+      // Clean up the unopened pack and refund
+      await adminClient.from('unopened_packs').delete().eq('id', unopenedPack.id);
       await adminClient
         .from('user_balances')
         .update({
@@ -129,8 +156,9 @@ export async function POST(request: Request) {
         .then();
     }
 
+    // Return pack ID only — no card data sent to client
     return NextResponse.json({
-      cards: pulledCards,
+      unopenedPackId: unopenedPack.id,
       newBalance,
       packCost: packPrice,
     });

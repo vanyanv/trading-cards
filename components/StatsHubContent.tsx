@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
   Package, Users, Layers, ChevronDown, ChevronRight,
-  TrendingUp, TrendingDown, BarChart3,
 } from 'lucide-react';
 import { RARITY_CONFIG } from '@/lib/constants';
 import { RarityBadge } from './RarityBadge';
@@ -19,8 +18,10 @@ interface StatsHubProps {
   };
   topSets: {
     setId: string;
+    setName: string;
     totalOpens: number;
     stats: { rarity: string; pull_count: number; total_opens: number }[];
+    packs: { packId: string; packName: string; packImageUrl: string }[];
   }[];
   recentPulls: {
     card_name: string;
@@ -29,19 +30,6 @@ interface StatsHubProps {
     set_name: string;
     display_name: string;
     obtained_at: string;
-  }[];
-  userLuckStats?: {
-    rarity: string;
-    user_count: number;
-    user_total: number;
-    community_rate: number;
-  }[];
-  userPackBreakdown?: {
-    pack_id: string;
-    pack_name: string;
-    pack_image_url: string;
-    set_name: string;
-    times_opened: number;
   }[];
 }
 
@@ -66,37 +54,75 @@ function StatCard({
 }
 
 function SetPullRates({
-  setId,
+  setName,
   totalOpens,
   stats,
+  packs,
 }: {
-  setId: string;
+  setName: string;
   totalOpens: number;
   stats: { rarity: string; pull_count: number; total_opens: number }[];
+  packs: { packId: string; packName: string; packImageUrl: string }[];
 }) {
   const [open, setOpen] = useState(false);
   const maxPulls = Math.max(...stats.map((s) => s.pull_count), 1);
 
   return (
-    <div className="rounded-xl border border-border bg-surface">
+    <div className="rounded-xl border border-border bg-surface overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
         <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-foreground">{setId}</span>
-          <span className="text-xs text-muted">
-            {totalOpens.toLocaleString()} opens
-          </span>
+          {packs.length > 0 && (
+            <div className="flex -space-x-2">
+              {packs.slice(0, 3).map((pack) => (
+                <img
+                  key={pack.packId}
+                  src={pack.packImageUrl}
+                  alt={pack.packName}
+                  className="h-10 w-7 rounded-md object-contain border border-border bg-surface-elevated shadow-warm-sm"
+                />
+              ))}
+            </div>
+          )}
+          <div className="min-w-0">
+            <span className="text-sm font-medium text-foreground block truncate">
+              {setName}
+            </span>
+            <span className="text-[11px] text-muted">
+              {totalOpens.toLocaleString()} opens
+            </span>
+          </div>
         </div>
         {open ? (
-          <ChevronDown className="h-4 w-4 text-muted" />
+          <ChevronDown className="h-4 w-4 text-muted shrink-0" />
         ) : (
-          <ChevronRight className="h-4 w-4 text-muted" />
+          <ChevronRight className="h-4 w-4 text-muted shrink-0" />
         )}
       </button>
       {open && (
         <div className="border-t border-border px-4 py-3 space-y-2.5">
+          {packs.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-1">
+              {packs.map((pack) => (
+                <Link
+                  key={pack.packId}
+                  href={`/pack/${pack.packId}`}
+                  className="flex shrink-0 flex-col items-center rounded-lg border border-border bg-surface-elevated p-1.5 transition-colors hover:border-accent/30"
+                >
+                  <img
+                    src={pack.packImageUrl}
+                    alt={pack.packName}
+                    className="h-16 w-11 rounded object-contain"
+                  />
+                  <span className="mt-1 w-16 truncate text-center text-[9px] text-muted">
+                    {pack.packName}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
           {[...stats]
             .sort((a, b) => b.pull_count - a.pull_count)
             .map((stat) => {
@@ -160,8 +186,6 @@ export function StatsHubContent({
   globalSummary,
   topSets,
   recentPulls,
-  userLuckStats,
-  userPackBreakdown,
 }: StatsHubProps) {
   return (
     <motion.div
@@ -176,7 +200,7 @@ export function StatsHubContent({
           Pull Rate Stats
         </h1>
         <p className="mt-1 text-sm text-muted">
-          Community pull data and personal tracking
+          Community pull data across all sets
         </p>
       </div>
 
@@ -199,90 +223,6 @@ export function StatsHubContent({
         />
       </div>
 
-      {/* Personal stats (authenticated only) */}
-      {userLuckStats && userLuckStats.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-accent" />
-            <h2 className="text-sm font-semibold text-foreground">Your Luck</h2>
-          </div>
-          <div className="space-y-2 rounded-2xl border border-border bg-surface p-4">
-            {userLuckStats.map((stat) => {
-              const rarityConfig = RARITY_CONFIG[stat.rarity as Rarity];
-              const userRate = stat.user_total > 0 ? stat.user_count / stat.user_total : 0;
-              const communityRate = Number(stat.community_rate) || 0;
-              const luckFactor = communityRate > 0 ? userRate / communityRate : null;
-              const luckPct = luckFactor ? Math.round((luckFactor - 1) * 100) : null;
-
-              return (
-                <div key={stat.rarity} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: rarityConfig?.color ?? '#9CA3AF' }}
-                    />
-                    <span className="text-xs font-medium text-foreground">
-                      {rarityConfig?.label ?? stat.rarity}
-                    </span>
-                    <span className="text-xs tabular-nums text-muted">
-                      ({stat.user_count}x)
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {luckPct !== null ? (
-                      <>
-                        {luckPct >= 0 ? (
-                          <TrendingUp className="h-3.5 w-3.5 text-green-500" />
-                        ) : (
-                          <TrendingDown className="h-3.5 w-3.5 text-red-500" />
-                        )}
-                        <span
-                          className={`text-xs font-bold tabular-nums ${
-                            luckPct >= 0 ? 'text-green-500' : 'text-red-500'
-                          }`}
-                        >
-                          {luckPct >= 0 ? '+' : ''}{luckPct}% vs avg
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-xs text-muted">Not enough data</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Personal pack breakdown */}
-      {userPackBreakdown && userPackBreakdown.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-foreground">Your Packs Opened</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {userPackBreakdown.map((pack) => (
-              <Link
-                key={pack.pack_id}
-                href={`/pack/${pack.pack_id}`}
-                className="flex w-28 shrink-0 flex-col items-center rounded-xl border border-border bg-surface p-2 transition-colors hover:border-accent/30"
-              >
-                <img
-                  src={pack.pack_image_url}
-                  alt={pack.pack_name}
-                  className="mb-2 h-28 w-20 rounded-lg object-contain"
-                />
-                <p className="w-full truncate text-center text-[10px] font-medium text-foreground">
-                  {pack.pack_name}
-                </p>
-                <p className="text-xs font-bold tabular-nums text-accent">
-                  x{pack.times_opened}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* Community pull rates by set */}
       {topSets.length > 0 && (
         <section>
@@ -293,9 +233,10 @@ export function StatsHubContent({
             {topSets.map((set) => (
               <SetPullRates
                 key={set.setId}
-                setId={set.setId}
+                setName={set.setName}
                 totalOpens={set.totalOpens}
                 stats={set.stats}
+                packs={set.packs}
               />
             ))}
           </div>
