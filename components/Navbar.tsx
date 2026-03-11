@@ -2,18 +2,19 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/cn';
-import { Coins, LogOut } from 'lucide-react';
+import { DollarSign } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserMenu } from '@/components/UserMenu';
 import type { User } from '@supabase/supabase-js';
 
 export function Navbar() {
   const [user, setUser] = useState<User | null>(null);
-  const [coins, setCoins] = useState<number | null>(null);
-  const [displayCoins, setDisplayCoins] = useState(0);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [displayBalance, setDisplayBalance] = useState(0);
   const pathname = usePathname();
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
@@ -28,10 +29,13 @@ export function Navbar() {
       if (user) {
         const { data } = await supabase
           .from('user_balances')
-          .select('coins')
+          .select('balance_usd')
           .eq('user_id', user.id)
           .single();
-        if (data) setCoins(data.coins);
+        if (data) {
+          setBalance(data.balance_usd);
+          setDisplayBalance(data.balance_usd);
+        }
       }
     };
 
@@ -42,48 +46,64 @@ export function Navbar() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setUser(session?.user ?? null);
-      if (!session?.user) setCoins(null);
+      if (!session?.user) setBalance(null);
     });
 
     return () => subscription.unsubscribe();
   }, [supabase]);
 
+  // Listen for balance updates from sell/buy flows
   useEffect(() => {
-    if (coins === null) return;
-    const diff = coins - displayCoins;
-    if (diff === 0) return;
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.balance != null) setBalance(detail.balance);
+    };
+    window.addEventListener('balance-update', handler);
+    return () => window.removeEventListener('balance-update', handler);
+  }, []);
 
-    const step = Math.ceil(Math.abs(diff) / 15);
+  useEffect(() => {
+    if (balance === null) return;
+    // Animate displayBalance toward the target balance
     const interval = setInterval(() => {
-      setDisplayCoins((prev) => {
-        const next = diff > 0 ? prev + step : prev - step;
-        if ((diff > 0 && next >= coins) || (diff < 0 && next <= coins)) {
+      setDisplayBalance((prev) => {
+        const diff = balance - prev;
+        if (Math.abs(diff) < 0.02) {
           clearInterval(interval);
-          return coins;
+          return balance;
         }
-        return next;
+        const step = Math.max(0.01, Math.abs(diff) / 10);
+        return parseFloat((diff > 0 ? prev + step : prev - step).toFixed(2));
       });
     }, 20);
 
     return () => clearInterval(interval);
-  }, [coins, displayCoins]);
-
-  const handleSignOut = async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    router.push('/');
-    router.refresh();
-  };
+  }, [balance]);
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
+    <nav className="sticky top-0 z-50 border-b border-border bg-surface/85 backdrop-blur-xl">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
         <div className="flex items-center gap-8">
           <Link
             href="/"
-            className="text-lg font-semibold tracking-tight text-foreground"
+            className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight text-foreground"
           >
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-[11px] font-extrabold text-background">
+              P
+            </span>
             PokePacks
+          </Link>
+
+          <Link
+            href="/browse"
+            className={cn(
+              'text-sm transition-colors',
+              pathname.startsWith('/browse')
+                ? 'text-foreground font-medium'
+                : 'text-muted hover:text-foreground'
+            )}
+          >
+            Browse
           </Link>
 
           {user && (
@@ -102,21 +122,16 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
+          <ThemeToggle />
           {user ? (
             <>
-              {coins !== null && (
-                <div className="flex items-center gap-1.5 text-sm text-muted">
-                  <Coins className="h-3.5 w-3.5" />
-                  <span className="tabular-nums font-medium text-foreground">{displayCoins}</span>
+              {balance !== null && (
+                <div className="flex items-center gap-1 rounded-full bg-accent-soft px-3 py-1 text-sm">
+                  <DollarSign className="h-3.5 w-3.5 text-accent" />
+                  <span className="tabular-nums font-semibold text-accent">{displayBalance.toFixed(2)}</span>
                 </div>
               )}
-              <button
-                onClick={handleSignOut}
-                className="flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Sign out</span>
-              </button>
+              <UserMenu supabase={supabase!} userId={user.id} />
             </>
           ) : (
             <div className="flex items-center gap-3">
@@ -128,7 +143,7 @@ export function Navbar() {
               </Link>
               <Link
                 href="/signup"
-                className="rounded-md bg-foreground px-4 py-1.5 text-sm font-medium text-background transition-opacity hover:opacity-80 active:opacity-70"
+                className="rounded-lg bg-foreground px-4 py-1.5 text-sm font-medium text-background transition-all hover:opacity-85 active:scale-[0.98]"
               >
                 Sign up
               </Link>

@@ -41,13 +41,14 @@ export async function POST(request: Request) {
     // Check user balance
     const { data: balance } = await supabase
       .from('user_balances')
-      .select('coins')
+      .select('balance_usd')
       .eq('user_id', user.id)
       .single();
 
-    if (!balance || balance.coins < pack.price_coins) {
+    const packPrice = pack.price_usd ?? 4.49;
+    if (!balance || balance.balance_usd < packPrice) {
       return NextResponse.json(
-        { error: 'Not enough coins' },
+        { error: 'Not enough balance' },
         { status: 400 }
       );
     }
@@ -58,30 +59,32 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Deduct coins
+    // Deduct balance
+    const newBalance = parseFloat((balance.balance_usd - packPrice).toFixed(2));
     const { error: deductError } = await adminClient
       .from('user_balances')
       .update({
-        coins: balance.coins - pack.price_coins,
+        balance_usd: newBalance,
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', user.id);
 
     if (deductError) {
       return NextResponse.json(
-        { error: 'Failed to deduct coins' },
+        { error: 'Failed to deduct balance' },
         { status: 500 }
       );
     }
 
     // Open pack (roll cards)
-    const pulledCards = await openPack(adminClient, pack.set_id);
+    const pulledCards = await openPack(adminClient, pack.set_id, pack.booster_id, pack.cards_per_pack, pack.edition);
 
     // Insert pulled cards into user_cards
     const userCardRows = pulledCards.map((card) => ({
       user_id: user.id,
       card_id: card.id,
       is_reverse_holo: card.is_reverse_holo,
+      edition: pack.edition || null,
       pack_opened_from: packId,
     }));
 
@@ -90,11 +93,11 @@ export async function POST(request: Request) {
       .insert(userCardRows);
 
     if (insertError) {
-      // Refund coins on failure
+      // Refund on failure
       await adminClient
         .from('user_balances')
         .update({
-          coins: balance.coins,
+          balance_usd: balance.balance_usd,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', user.id);
@@ -110,7 +113,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       cards: pulledCards,
-      newBalance: balance.coins - pack.price_coins,
+      newBalance,
+      packCost: packPrice,
     });
   } catch {
     return NextResponse.json(

@@ -31,23 +31,13 @@ export default async function CollectionPage() {
     card_id: uc.card_id,
     card: uc.card || undefined,
     is_reverse_holo: uc.is_reverse_holo,
+    edition: uc.edition || null,
     obtained_at: uc.obtained_at,
     pack_opened_from: uc.pack_opened_from,
   }));
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Collection
-        </h1>
-        <p className="mt-2 text-sm text-muted">
-          Every card you&apos;ve pulled.
-        </p>
-      </div>
-
-      <div className="mb-8 h-px bg-border" />
-
+    <div className="mx-auto max-w-7xl px-6 py-12">
       <CollectionGrid userCards={shaped} />
     </div>
   );

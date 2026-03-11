@@ -16,7 +16,7 @@ export function RarityBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 text-xs font-medium',
+        'inline-flex items-center gap-1.5 text-xs font-semibold',
         className
       )}
     >

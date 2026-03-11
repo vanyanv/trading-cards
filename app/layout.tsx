@@ -1,11 +1,17 @@
 import type { Metadata } from 'next';
-import { Geist } from 'next/font/google';
+import { Bricolage_Grotesque, DM_Sans } from 'next/font/google';
 import { Navbar } from '@/components/Navbar';
 import './globals.css';
 
-const geist = Geist({
+const heading = Bricolage_Grotesque({
   subsets: ['latin'],
-  variable: '--font-sans',
+  variable: '--font-heading',
+  weight: ['400', '500', '600', '700', '800'],
+});
+
+const body = DM_Sans({
+  subsets: ['latin'],
+  variable: '--font-body',
 });
 
 export const metadata: Metadata = {
@@ -20,12 +26,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="dns-prefetch" href="https://assets.tcgdex.net" />
+        <link rel="preconnect" href="https://assets.tcgdex.net" crossOrigin="anonymous" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body
-        className={`${geist.variable} font-sans bg-background text-foreground antialiased`}
+        className={`${heading.variable} ${body.variable} font-body bg-background text-foreground antialiased`}
       >
+        <div className="grain" />
         <Navbar />
-        <main>{children}</main>
+        <main className="relative">{children}</main>
       </body>
     </html>
   );

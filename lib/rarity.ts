@@ -1,5 +1,5 @@
 import { Rarity } from '@/types';
-import { HIT_SLOT_RATES } from './constants';
+import { HIT_SLOT_RATES, TCGP_HIT_SLOT_RATES } from './constants';
 
 /**
  * Roll the hit slot (#10) rarity based on real Pokemon TCG pull rates.
@@ -29,6 +29,21 @@ export function rollReverseHoloRarity(): Rarity {
 }
 
 /**
+ * Roll the TCGP hit slot (#5) rarity based on TCG Pocket pull rates.
+ */
+export function rollTCGPHitSlotRarity(): Rarity {
+  const totalWeight = TCGP_HIT_SLOT_RATES.reduce((sum, r) => sum + r.weight, 0);
+  let roll = Math.random() * totalWeight;
+
+  for (const rate of TCGP_HIT_SLOT_RATES) {
+    roll -= rate.weight;
+    if (roll <= 0) return rate.rarity;
+  }
+
+  return Rarity.ThreeDiamond;
+}
+
+/**
  * Determine the rarity order for sorting (higher = rarer).
  */
 export function rarityOrder(rarity: Rarity): number {
@@ -41,6 +56,17 @@ export function rarityOrder(rarity: Rarity): number {
     [Rarity.UltraRare]: 5,
     [Rarity.SpecialIllustrationRare]: 6,
     [Rarity.HyperRare]: 7,
+    // TCG Pocket
+    [Rarity.OneDiamond]: 0,
+    [Rarity.TwoDiamond]: 1,
+    [Rarity.ThreeDiamond]: 2,
+    [Rarity.FourDiamond]: 3,
+    [Rarity.OneStar]: 5,
+    [Rarity.TwoStar]: 6,
+    [Rarity.ThreeStar]: 7,
+    [Rarity.Crown]: 8,
+    [Rarity.OneShiny]: 4,
+    [Rarity.TwoShiny]: 5,
   };
-  return order[rarity];
+  return order[rarity] ?? 0;
 }

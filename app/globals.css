@@ -1,34 +1,54 @@
 @import "tailwindcss";
 
-@theme inline {
-  /* Surfaces — clean white canvas */
-  --color-background: #FFFFFF;
+@theme {
+  /* Warm white canvas */
+  --color-background: #FAFAF7;
   --color-surface: #FFFFFF;
-  --color-surface-elevated: #F9FAFB;
-  --color-border: #E5E7EB;
-  --color-border-subtle: #F3F4F6;
-  --color-foreground: #111827;
-  --color-muted: #6B7280;
-  --color-muted-dim: #9CA3AF;
+  --color-surface-elevated: #F5F5F0;
+  --color-border: #E8E5DE;
+  --color-border-subtle: #F0EDE6;
+  --color-foreground: #1A1814;
+  --color-muted: #78736A;
+  --color-muted-dim: #A8A29E;
 
-  /* Accent — black is the accent in minimalist design */
-  --color-accent: #111827;
-  --color-accent-hover: #374151;
+  /* Warm amber accent */
+  --color-accent: #C8972E;
+  --color-accent-hover: #B5862A;
+  --color-accent-glow: rgba(200, 151, 46, 0.15);
+  --color-accent-soft: #FBF4E4;
 
-  /* Rarity colors — vibrant pops on white */
-  --color-rarity-common: #9CA3AF;
-  --color-rarity-uncommon: #4ADE80;
-  --color-rarity-rare: #FBBF24;
-  --color-rarity-double: #60A5FA;
-  --color-rarity-illustration: #A78BFA;
-  --color-rarity-ultra: #FB923C;
-  --color-rarity-special: #F472B6;
-  --color-rarity-hyper: #FACC15;
+  /* Rarity colors — tuned for warm white */
+  --color-rarity-common: #A8A29E;
+  --color-rarity-uncommon: #34D399;
+  --color-rarity-rare: #F59E0B;
+  --color-rarity-double: #3B82F6;
+  --color-rarity-illustration: #8B5CF6;
+  --color-rarity-ultra: #F97316;
+  --color-rarity-special: #EC4899;
+  --color-rarity-hyper: #EAB308;
 
-  --font-sans: "Geist", system-ui, -apple-system, sans-serif;
+  --font-heading: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
 }
 
-/* Card flip utilities (functional, not decorative) */
+/* Headings use display font */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+/* Subtle grain texture overlay for depth */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.3;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* Card flip utilities */
 .perspective-1000 {
   perspective: 1000px;
 }
@@ -48,12 +68,12 @@
 /* Skeleton loading */
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50% { opacity: 0.35; }
 }
 
 .skeleton {
-  background: #E5E7EB;
-  border-radius: 6px;
+  background: var(--color-border);
+  border-radius: 8px;
   animation: skeleton-pulse 1.8s ease-in-out infinite;
 }
 
@@ -65,13 +85,13 @@
 .spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid #E5E7EB;
-  border-top-color: #111827;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
   border-radius: 50%;
   animation: spin-ring 0.8s linear infinite;
 }
 
-/* Scrollbar — thin and subtle */
+/* Scrollbar — warm and subtle */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -81,16 +101,337 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D1D5DB;
+  background: var(--color-border);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9CA3AF;
+  background: var(--color-muted-dim);
 }
 
-/* Focus ring */
+/* Focus ring — warm accent */
 *:focus-visible {
-  outline: 1.5px solid #111827;
+  outline: 1.5px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* Pack card hover glow */
+.pack-card-glow {
+  transition: box-shadow 0.4s ease, border-color 0.4s ease;
+}
+
+.pack-card-glow:hover {
+  box-shadow: 0 8px 32px -8px rgba(200, 151, 46, 0.18), 0 2px 8px -2px rgba(0,0,0,0.06);
+  border-color: rgba(200, 151, 46, 0.3);
+}
+
+/* Warm shadow utility */
+.shadow-warm-sm {
+  box-shadow: 0 1px 3px rgba(26, 24, 20, 0.04), 0 1px 2px rgba(26, 24, 20, 0.03);
+}
+
+.shadow-warm-md {
+  box-shadow: 0 4px 16px -4px rgba(26, 24, 20, 0.08), 0 2px 4px -2px rgba(26, 24, 20, 0.04);
+}
+
+.shadow-warm-lg {
+  box-shadow: 0 10px 40px -12px rgba(26, 24, 20, 0.12), 0 4px 12px -4px rgba(26, 24, 20, 0.06);
+}
+
+/* Subtle shimmer for trending badge */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.shimmer-badge {
+  background: linear-gradient(
+    110deg,
+    var(--color-accent) 0%,
+    #E8B84D 40%,
+    var(--color-accent) 60%,
+    #E8B84D 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Set chip hover effect */
+.set-chip {
+  transition: all 0.25s ease;
+}
+
+.set-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -4px rgba(26, 24, 20, 0.1);
+}
+
+.set-chip-active {
+  background: var(--color-foreground);
+  color: var(--color-background);
+  border-color: var(--color-foreground);
+  box-shadow: 0 2px 8px -2px rgba(26, 24, 20, 0.2);
+}
+
+/* Hero text shimmer */
+@keyframes text-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.text-shimmer {
+  background: linear-gradient(110deg, var(--color-accent) 0%, #E8B84D 35%, #F5D88E 50%, #E8B84D 65%, var(--color-accent) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: text-shimmer 4s ease-in-out infinite;
+}
+
+/* Marquee ticker */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.marquee-track {
+  animation: marquee 35s linear infinite;
+}
+
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+    overflow-x: auto;
+  }
+}
+
+/* Hide scrollbar for horizontal scroll areas */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 2px;
+}
+
+/* ===== Pack Opening Animations ===== */
+
+/* Animated CSS custom properties */
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@property --holo-angle {
+  syntax: '<angle>';
+  initial-value: 120deg;
+  inherits: false;
+}
+
+@property --holo-x {
+  syntax: '<percentage>';
+  initial-value: 50%;
+  inherits: false;
+}
+
+/* Screen shake for ultra-rare reveals */
+@keyframes screen-shake {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-3px, 2px); }
+  20% { transform: translate(4px, -2px); }
+  30% { transform: translate(-2px, 3px); }
+  40% { transform: translate(3px, -1px); }
+  50% { transform: translate(-1px, -3px); }
+  60% { transform: translate(2px, 2px); }
+  70% { transform: translate(-4px, 1px); }
+  80% { transform: translate(1px, -2px); }
+  90% { transform: translate(-2px, 3px); }
+}
+
+.screen-shake {
+  animation: screen-shake 0.5s ease-out;
+}
+
+/* Rotating conic-gradient border for spotlight card */
+@keyframes rotate-border {
+  to { --border-angle: 360deg; }
+}
+
+.spotlight-border {
+  background: conic-gradient(
+    from var(--border-angle),
+    var(--rarity-color),
+    transparent 30%,
+    var(--rarity-color) 50%,
+    transparent 80%,
+    var(--rarity-color)
+  );
+  animation: rotate-border 3s linear infinite;
+  padding: 3px;
+  border-radius: 16px;
+}
+
+/* Holographic card overlay — mouse-driven via inline --holo-angle */
+.holo-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  mix-blend-mode: color-dodge;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: linear-gradient(
+    var(--holo-angle, 120deg),
+    transparent 0%,
+    rgba(255, 0, 0, 0.12) 15%,
+    rgba(255, 165, 0, 0.12) 25%,
+    rgba(255, 255, 0, 0.12) 35%,
+    rgba(0, 255, 0, 0.12) 45%,
+    rgba(0, 100, 255, 0.12) 55%,
+    rgba(130, 0, 255, 0.12) 65%,
+    rgba(255, 0, 128, 0.12) 80%,
+    transparent 100%
+  );
+  filter: blur(1px);
+  background-size: 200% 200%;
+  background-position: var(--holo-x, 50%) 50%;
+}
+
+.holo-overlay.active {
+  opacity: 0.5;
+}
+
+/* Auto-sweep for mobile / no-pointer */
+@keyframes holo-auto {
+  0% { --holo-angle: 80deg; --holo-x: 30%; }
+  50% { --holo-angle: 160deg; --holo-x: 70%; }
+  100% { --holo-angle: 80deg; --holo-x: 30%; }
+}
+
+@media (hover: none) {
+  .holo-overlay.active {
+    animation: holo-auto 4s ease-in-out infinite;
+    opacity: 0.4;
+  }
+}
+
+/* Pre-reveal glow pulse */
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.glow-pulse {
+  animation: glow-pulse 0.8s ease-in-out infinite;
+}
+
+/* CTA glow pulse — uses --glow-color custom property */
+@keyframes cta-glow {
+  0%, 100% { box-shadow: 0 0 20px color-mix(in srgb, var(--glow-color, #C8972E) 20%, transparent), 0 0 40px color-mix(in srgb, var(--glow-color, #C8972E) 10%, transparent); }
+  50% { box-shadow: 0 0 30px color-mix(in srgb, var(--glow-color, #C8972E) 35%, transparent), 0 0 60px color-mix(in srgb, var(--glow-color, #C8972E) 18%, transparent); }
+}
+
+/* Crack lines on card back before ultra-rare reveal */
+@keyframes crack-grow {
+  0% { transform: scaleX(0); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0.8; }
+}
+
+/* Confetti fall for celebration */
+@keyframes confetti-fall {
+  0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+
+/* Immersive card holographic overlay — enhanced conic gradient */
+.immersive-holo-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  mix-blend-mode: color-dodge;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: conic-gradient(
+    from var(--holo-angle, 120deg) at var(--holo-x, 50%) 50%,
+    rgba(255, 0, 0, 0.18) 0%,
+    rgba(255, 165, 0, 0.18) 14%,
+    rgba(255, 255, 0, 0.18) 28%,
+    rgba(0, 255, 0, 0.18) 42%,
+    rgba(0, 100, 255, 0.18) 56%,
+    rgba(130, 0, 255, 0.18) 70%,
+    rgba(255, 0, 128, 0.18) 85%,
+    rgba(255, 0, 0, 0.18) 100%
+  );
+  filter: blur(0.5px) saturate(1.3);
+  background-size: 200% 200%;
+}
+
+.immersive-holo-overlay.active {
+  opacity: 0.7;
+}
+
+@media (hover: none) {
+  .immersive-holo-overlay.active {
+    animation: holo-auto 4s ease-in-out infinite;
+    opacity: 0.5;
+  }
+}
+
+/* Reduced motion overrides */
+@media (prefers-reduced-motion: reduce) {
+  .screen-shake { animation: none; }
+  .spotlight-border { animation: none; }
+  .holo-overlay { display: none; }
+  .immersive-holo-overlay { display: none; }
+  .glow-pulse { animation: none; }
+}
+
+/* ===== Dark mode overrides ===== */
+.dark {
+  --color-background: #13111C;
+  --color-surface: #1C1926;
+  --color-surface-elevated: #252231;
+  --color-border: #2E2A3B;
+  --color-border-subtle: #1F1C2A;
+  --color-foreground: #EEEDF1;
+  --color-muted: #8B879A;
+  --color-muted-dim: #5E596E;
+  --color-accent: #C8972E;
+  --color-accent-hover: #D4A53A;
+  --color-accent-glow: rgba(200, 151, 46, 0.2);
+  --color-accent-soft: #1E1A14;
+}
+
+.dark .grain {
+  opacity: 0.12;
+}
+
+.dark .shadow-warm-sm {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.dark .shadow-warm-md {
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+}
+.dark .shadow-warm-lg {
+  box-shadow: 0 10px 40px -12px rgba(0, 0, 0, 0.4), 0 4px 12px -4px rgba(0, 0, 0, 0.25);
+}
+
+.dark .pack-card-glow:hover {
+  box-shadow: 0 8px 32px -8px rgba(200, 151, 46, 0.25), 0 2px 8px -2px rgba(0,0,0,0.3);
+  border-color: rgba(200, 151, 46, 0.4);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-dim);
 }

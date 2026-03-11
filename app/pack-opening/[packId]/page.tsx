@@ -13,6 +13,7 @@ export default function PackOpeningPage() {
 
   const [pack, setPack] = useState<Pack | null>(null);
   const [cards, setCards] = useState<PulledCard[] | null>(null);
+  const [packCost, setPackCost] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -58,6 +59,8 @@ export default function PackOpeningPage() {
       }
 
       setCards(data.cards);
+      setPackCost(data.packCost);
+      window.dispatchEvent(new CustomEvent('balance-update', { detail: { balance: data.newBalance } }));
     } catch {
       setError('Something went wrong');
     } finally {
@@ -98,8 +101,10 @@ export default function PackOpeningPage() {
     <PackOpeningAnimation
       cards={cards}
       packName={pack.name}
-      packImage={pack.image_url}
+      packImage={pack.featured_card_image || pack.image_url}
+      packCost={packCost}
       onOpenAnother={openPack}
+      edition={pack.edition}
     />
   );
 }

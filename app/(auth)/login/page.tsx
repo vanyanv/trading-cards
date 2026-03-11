@@ -6,7 +6,10 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-foreground text-lg font-extrabold text-background">
+            P
+          </div>
+          <h1 className="font-heading text-2xl font-bold tracking-tight">
             Welcome back
           </h1>
           <p className="mt-2 text-sm text-muted">
@@ -14,7 +17,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+        <div className="rounded-2xl border border-border bg-surface p-6 shadow-warm-sm">
           <AuthForm mode="login" />
         </div>
 

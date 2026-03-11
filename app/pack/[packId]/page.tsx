@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { HIT_SLOT_RATES } from '@/lib/constants';
+import { HIT_SLOT_RATES, TCGP_HIT_SLOT_RATES } from '@/lib/constants';
 import { PackDetail } from '@/components/PackDetail';
 import type { Pack, Card } from '@/types';
 import Link from 'next/link';
@@ -37,19 +37,28 @@ export default async function PackDetailPage({
 
   const typedPack = pack as Pack;
 
-  const { data: cards } = await supabase
+  let cardsQuery = supabase
     .from('cards')
     .select('*')
     .eq('set_id', typedPack.set_id)
     .order('rarity', { ascending: true });
 
+  // For TCGP boosters, filter to cards in this booster
+  if (typedPack.booster_id) {
+    cardsQuery = cardsQuery.contains('booster_ids', [typedPack.booster_id]);
+  }
+
+  const { data: cards } = await cardsQuery;
+
   const { data: { user } } = await supabase.auth.getUser();
+
+  const isTCGP = typedPack.cards_per_pack === 5;
 
   return (
     <PackDetail
       pack={typedPack}
       cards={(cards || []) as Card[]}
-      pullRates={HIT_SLOT_RATES}
+      pullRates={isTCGP ? TCGP_HIT_SLOT_RATES : HIT_SLOT_RATES}
       isAuthenticated={!!user}
     />
   );

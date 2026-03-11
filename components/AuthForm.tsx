@@ -60,7 +60,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="w-full rounded-md border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted-dim transition-colors focus:border-foreground focus:outline-none"
+          className="w-full rounded-xl border border-border bg-surface-elevated px-4 py-2.5 text-sm text-foreground placeholder:text-muted-dim transition-colors focus:border-accent focus:outline-none"
           placeholder="you@example.com"
         />
       </div>
@@ -79,13 +79,13 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={6}
-          className="w-full rounded-md border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted-dim transition-colors focus:border-foreground focus:outline-none"
+          className="w-full rounded-xl border border-border bg-surface-elevated px-4 py-2.5 text-sm text-foreground placeholder:text-muted-dim transition-colors focus:border-accent focus:outline-none"
           placeholder="••••••••"
         />
       </div>
 
       {error && (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
           {error}
         </p>
       )}
@@ -94,7 +94,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         type="submit"
         disabled={loading}
         className={cn(
-          'mt-2 flex items-center justify-center rounded-md bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity',
+          'mt-2 flex items-center justify-center rounded-xl bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity',
           'hover:opacity-80 active:opacity-70',
           'disabled:cursor-not-allowed disabled:opacity-50'
         )}

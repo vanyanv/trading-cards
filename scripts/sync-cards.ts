@@ -8,9 +8,8 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { fetchCardsBySet, fetchSets } from '../lib/pokemon-tcg-api';
-import { Rarity } from '../types';
-import { DEFAULT_PACK_PRICE } from '../lib/constants';
+import { fetchCard, fetchCardsBySet, fetchSets, type TCGCard, type TCGdexPricing } from '../lib/pokemon-tcg-api';
+import { Rarity, type Edition } from '../types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey =
@@ -203,6 +202,95 @@ function mapRarity(apiRarity: string | undefined): Rarity {
   return mapped;
 }
 
+// Extract the best available price and compute a trend direction
+function extractPricing(pricing: TCGdexPricing | undefined): {
+  price: number | null;
+  priceTrend: 'up' | 'down' | 'stable' | null;
+  priceSource: 'tcgplayer' | 'cardmarket' | null;
+} {
+  if (!pricing) return { price: null, priceTrend: null, priceSource: null };
+
+  // Prefer TCGPlayer market price (USD), fall back to Cardmarket avg
+  let price: number | null = null;
+  let priceSource: 'tcgplayer' | 'cardmarket' | null = null;
+
+  if (pricing.tcgplayer) {
+    const tp = pricing.tcgplayer;
+    price =
+      tp.holofoil?.marketPrice ??
+      tp.normal?.marketPrice ??
+      tp['reverse-holofoil']?.marketPrice ??
+      tp['1stEditionHolofoil']?.marketPrice ??
+      tp['1stEditionNormal']?.marketPrice ??
+      null;
+    if (price != null) priceSource = 'tcgplayer';
+  }
+
+  if (price == null && pricing.cardmarket) {
+    price = pricing.cardmarket.avg ?? null;
+    if (price != null) priceSource = 'cardmarket';
+  }
+
+  // Determine trend from cardmarket short-term vs long-term averages
+  let priceTrend: 'up' | 'down' | 'stable' | null = null;
+  if (pricing.cardmarket) {
+    const { avg7, avg30 } = pricing.cardmarket;
+    if (avg7 != null && avg30 != null && avg30 > 0) {
+      const change = (avg7 - avg30) / avg30;
+      if (change > 0.1) priceTrend = 'up';
+      else if (change < -0.1) priceTrend = 'down';
+      else priceTrend = 'stable';
+    }
+  }
+
+  return { price, priceTrend, priceSource };
+}
+
+// Sets that received 1st Edition print runs
+const FIRST_EDITION_SET_IDS = [
+  'base1', 'base2', 'base3', 'base5',
+  'gym1', 'gym2',
+  'neo1', 'neo2', 'neo3', 'neo4',
+];
+
+// Only Base Set had the Shadowless variant
+const SHADOWLESS_SET_IDS = ['base1'];
+
+// Edition price multipliers
+const EDITION_PRICE_MULTIPLIERS: Record<Edition, number> = {
+  '1st-edition': 5.0,
+  'shadowless': 3.0,
+  'unlimited': 1.0,
+};
+
+// Era-based real-world pack pricing (USD)
+function getPackPriceUsd(setId: string): number {
+  if (setId.startsWith('sv') || setId.startsWith('swsh')) return 4.49;
+  if (setId.startsWith('sm')) return 5.0;
+  if (setId.startsWith('xy') || setId.startsWith('g1')) return 10.0;
+  if (setId.startsWith('bw')) return 20.0;
+  if (setId.startsWith('hgss') || setId.startsWith('col')) return 30.0;
+  if (setId.startsWith('pl')) return 35.0;
+  if (setId.startsWith('dp')) return 30.0;
+  if (setId.startsWith('ex') || setId.startsWith('ecard')) return 80.0;
+  if (setId.startsWith('neo')) return 150.0;
+  if (setId.startsWith('gym')) return 200.0;
+  if (setId.startsWith('base')) return 250.0;
+  return 4.49; // default for unknown sets
+}
+
+// Fallback estimates for cards without API pricing
+const RARITY_ESTIMATE_PRICES: Record<string, number> = {
+  [Rarity.Common]: 0.10,
+  [Rarity.Uncommon]: 0.25,
+  [Rarity.Rare]: 1.50,
+  [Rarity.DoubleRare]: 5.0,
+  [Rarity.IllustrationRare]: 8.0,
+  [Rarity.UltraRare]: 15.0,
+  [Rarity.SpecialIllustrationRare]: 30.0,
+  [Rarity.HyperRare]: 60.0,
+};
+
 async function syncSet(setId: string) {
   console.log(`\nSyncing set: ${setId}...`);
 
@@ -215,19 +303,30 @@ async function syncSet(setId: string) {
   for (const card of cards) {
     const rarity = mapRarity(card.rarity);
 
+    // Build subtypes from stage + suffix (e.g. ["Stage 1", "V"])
+    const subtypes: string[] = [];
+    if (card.stage) subtypes.push(card.stage);
+    if (card.suffix) subtypes.push(card.suffix);
+
+    // Extract best available price from TCGdex pricing
+    const { price, priceTrend, priceSource } = extractPricing(card.pricing);
+
     const { error } = await supabase.from('cards').upsert(
       {
         name: card.name,
-        image_url: `${card.image}/low.png`,
-        image_url_hires: `${card.image}/high.png`,
+        image_url: card.image ? `${card.image}/low.png` : '',
+        image_url_hires: card.image ? `${card.image}/high.png` : '',
         rarity,
         set_id: card.set.id,
         set_name: card.set.name,
         hp: card.hp ? String(card.hp) : null,
         types: card.types || [],
-        subtypes: card.stage ? [card.stage] : [],
+        subtypes,
         supertype: card.category,
         tcg_id: card.id,
+        price,
+        price_trend: priceTrend,
+        price_source: priceSource,
       },
       { onConflict: 'tcg_id' }
     );
@@ -242,27 +341,80 @@ async function syncSet(setId: string) {
 
   console.log(`  Inserted/updated: ${inserted}, Errors: ${errors}`);
 
-  // Create pack entry for this set
+  // Create pack entry/entries for this set
   if (cards.length > 0) {
     const set = cards[0].set;
-    const { error } = await supabase.from('packs').upsert(
-      {
-        name: set.name,
-        description: `Booster pack from the ${set.name} set`,
-        price_coins: DEFAULT_PACK_PRICE,
-        image_url: set.logo ? `${set.logo}.png` : '',
-        cards_per_pack: 10,
-        set_id: set.id,
-        set_name: set.name,
-        available: true,
-      },
-      { onConflict: 'set_id' }
-    );
+    const basePrice = getPackPriceUsd(set.id);
+    const imageUrl = set.logo ? `${set.logo}.png` : '';
 
-    if (error) {
-      console.error(`  Error creating pack for ${set.name}:`, error.message);
+    if (FIRST_EDITION_SET_IDS.includes(set.id)) {
+      // Vintage set: create edition variant packs
+      const editions: Edition[] = ['1st-edition', 'unlimited'];
+      if (SHADOWLESS_SET_IDS.includes(set.id)) {
+        editions.push('shadowless');
+      }
+
+      for (const edition of editions) {
+        const editionLabel =
+          edition === '1st-edition' ? '1st Edition' :
+          edition === 'shadowless' ? 'Shadowless' : 'Unlimited';
+        const price = parseFloat((basePrice * EDITION_PRICE_MULTIPLIERS[edition]).toFixed(2));
+
+        // Use select-then-upsert since composite unique index uses partial indexes
+        const { data: existing } = await supabase
+          .from('packs')
+          .select('id')
+          .eq('set_id', set.id)
+          .eq('edition', edition)
+          .is('booster_id', null)
+          .maybeSingle();
+
+        const packData = {
+          name: `${set.name} — ${editionLabel}`,
+          description: `${editionLabel} booster pack from the ${set.name} set`,
+          price_usd: price,
+          image_url: imageUrl,
+          cards_per_pack: 10,
+          set_id: set.id,
+          set_name: set.name,
+          edition,
+          available: true,
+        };
+
+        let error;
+        if (existing) {
+          ({ error } = await supabase.from('packs').update(packData).eq('id', existing.id));
+        } else {
+          ({ error } = await supabase.from('packs').insert(packData));
+        }
+
+        if (error) {
+          console.error(`  Error creating ${editionLabel} pack for ${set.name}:`, error.message);
+        } else {
+          console.log(`  Pack created: ${set.name} — ${editionLabel} ($${price})`);
+        }
+      }
     } else {
-      console.log(`  Pack created for ${set.name}`);
+      // Modern set: single pack, no edition
+      const { error } = await supabase.from('packs').upsert(
+        {
+          name: set.name,
+          description: `Booster pack from the ${set.name} set`,
+          price_usd: basePrice,
+          image_url: imageUrl,
+          cards_per_pack: 10,
+          set_id: set.id,
+          set_name: set.name,
+          available: true,
+        },
+        { onConflict: 'set_id' }
+      );
+
+      if (error) {
+        console.error(`  Error creating pack for ${set.name}:`, error.message);
+      } else {
+        console.log(`  Pack created for ${set.name}`);
+      }
     }
   }
 }
@@ -281,8 +433,142 @@ async function main() {
     ).join(', ')
   );
 
+  const failedSets: string[] = [];
   for (const setId of TARGET_SET_IDS) {
-    await syncSet(setId);
+    try {
+      await syncSet(setId);
+    } catch (err) {
+      console.error(`  FAILED to sync ${setId}:`, (err as Error).message);
+      failedSets.push(setId);
+      // Wait a bit before continuing after a failure
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
+
+  if (failedSets.length > 0) {
+    console.log(`\nRetrying ${failedSets.length} failed sets...`);
+    for (const setId of failedSets) {
+      try {
+        await new Promise((r) => setTimeout(r, 2000));
+        await syncSet(setId);
+      } catch (err) {
+        console.error(`  RETRY FAILED for ${setId}:`, (err as Error).message);
+      }
+    }
+  }
+
+  // Fallback pass: assign estimate prices to cards missing API pricing
+  console.log('\nApplying fallback prices for cards without API data...');
+  for (const [rarity, estimatePrice] of Object.entries(RARITY_ESTIMATE_PRICES)) {
+    const { count, error } = await supabase
+      .from('cards')
+      .update({
+        price: estimatePrice,
+        price_source: 'estimate',
+        price_trend: 'stable',
+      })
+      .is('price', null)
+      .eq('rarity', rarity);
+
+    if (error) {
+      console.error(`  Error updating ${rarity} fallback:`, error.message);
+    } else {
+      console.log(`  ${rarity}: ${count ?? 0} cards set to $${estimatePrice.toFixed(2)}`);
+    }
+  }
+
+  // Detailed pricing pass: write per-variant pricing to card_pricing_details
+  console.log('\nSyncing detailed per-variant pricing...');
+  const { data: allCards } = await supabase
+    .from('cards')
+    .select('id, tcg_id')
+    .not('price_source', 'eq', 'estimate')
+    .not('price', 'is', null);
+
+  if (allCards && allCards.length > 0) {
+    let detailCount = 0;
+    const detailBatchSize = 5;
+
+    for (let i = 0; i < allCards.length; i += detailBatchSize) {
+      const batch = allCards.slice(i, i + detailBatchSize);
+      const detailResults = await Promise.all(
+        batch.map(async (card) => {
+          try {
+            const tcgCard = await fetchCard(card.tcg_id);
+            return { cardId: card.id, pricing: tcgCard.pricing };
+          } catch {
+            return { cardId: card.id, pricing: null };
+          }
+        })
+      );
+
+      for (const { cardId, pricing } of detailResults) {
+        if (!pricing) continue;
+
+        const tp = pricing.tcgplayer as Record<string, Record<string, number | null>> | undefined;
+        const cm = pricing.cardmarket as Record<string, number | null> | undefined;
+
+        // Map variants from tcgplayer
+        const variants = ['normal', 'holofoil', 'reverse-holofoil', '1stEditionHolofoil', '1stEditionNormal']
+          .filter((v) => tp?.[v]);
+
+        for (const variant of variants) {
+          const vp = tp?.[variant];
+          const row = {
+            card_id: cardId,
+            variant,
+            tcgplayer_low: vp?.lowPrice ?? null,
+            tcgplayer_mid: vp?.midPrice ?? null,
+            tcgplayer_high: vp?.highPrice ?? null,
+            tcgplayer_market: vp?.marketPrice ?? null,
+            tcgplayer_direct_low: vp?.directLowPrice ?? null,
+            cardmarket_avg: cm?.avg ?? null,
+            cardmarket_low: cm?.low ?? null,
+            cardmarket_trend: cm?.trend ?? null,
+            cardmarket_avg7: cm?.avg7 ?? null,
+            cardmarket_avg30: cm?.avg30 ?? null,
+            updated_at: new Date().toISOString(),
+          };
+
+          const { error } = await supabase
+            .from('card_pricing_details')
+            .upsert(row, { onConflict: 'card_id,variant' });
+
+          if (!error) detailCount++;
+        }
+
+        // If no tcgplayer variants but has cardmarket data, insert as 'normal'
+        if (variants.length === 0 && cm) {
+          const row = {
+            card_id: cardId,
+            variant: 'normal',
+            tcgplayer_low: null,
+            tcgplayer_mid: null,
+            tcgplayer_high: null,
+            tcgplayer_market: null,
+            tcgplayer_direct_low: null,
+            cardmarket_avg: cm.avg ?? null,
+            cardmarket_low: cm.low ?? null,
+            cardmarket_trend: cm.trend ?? null,
+            cardmarket_avg7: cm.avg7 ?? null,
+            cardmarket_avg30: cm.avg30 ?? null,
+            updated_at: new Date().toISOString(),
+          };
+
+          const { error } = await supabase
+            .from('card_pricing_details')
+            .upsert(row, { onConflict: 'card_id,variant' });
+
+          if (!error) detailCount++;
+        }
+      }
+
+      if (i + detailBatchSize < allCards.length) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+
+    console.log(`  Synced ${detailCount} pricing detail rows`);
   }
 
   console.log('\nSync complete!');

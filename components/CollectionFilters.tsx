@@ -41,11 +41,11 @@ export function CollectionFilters({
       {/* Stats */}
       <div className="flex items-center gap-4 text-sm text-muted">
         <span>
-          <strong className="text-foreground">{totalCards}</strong> total
+          <strong className="font-bold text-foreground">{totalCards}</strong> total
         </span>
         <span className="text-muted-dim">/</span>
         <span>
-          <strong className="text-foreground">{uniqueCards}</strong> unique
+          <strong className="font-bold text-foreground">{uniqueCards}</strong> unique
         </span>
       </div>
 
@@ -58,7 +58,7 @@ export function CollectionFilters({
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search cards..."
-            className="w-full rounded-md border border-border bg-surface py-2.5 pl-9 pr-3 text-sm placeholder:text-muted-dim transition-colors focus:border-foreground focus:outline-none"
+            className="w-full rounded-xl border border-border bg-surface py-2.5 pl-9 pr-3 text-sm placeholder:text-muted-dim transition-colors focus:border-accent focus:outline-none"
           />
         </div>
 
@@ -66,7 +66,7 @@ export function CollectionFilters({
           <select
             value={selectedSet}
             onChange={(e) => onSetChange(e.target.value)}
-            className="rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-foreground transition-colors focus:border-foreground focus:outline-none"
+            className="rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-foreground transition-colors focus:border-accent focus:outline-none"
           >
             <option value="all">All sets</option>
             {sets.map((s) => (
@@ -88,7 +88,7 @@ export function CollectionFilters({
               key={r}
               onClick={() => toggleRarity(r)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-all active:scale-[0.97]',
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-[0.97]',
                 isSelected
                   ? 'bg-foreground text-background border-foreground'
                   : 'bg-transparent text-muted border-border hover:border-muted-dim'

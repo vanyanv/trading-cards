@@ -15,11 +15,11 @@ export async function GET() {
 
     const { data } = await supabase
       .from('user_balances')
-      .select('coins')
+      .select('balance_usd')
       .eq('user_id', user.id)
       .single();
 
-    return NextResponse.json({ coins: data?.coins ?? 0 });
+    return NextResponse.json({ balance: data?.balance_usd ?? 0 });
   } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -28,7 +28,7 @@ export async function GET() {
   }
 }
 
-// POST: Add 500 coins (mock top-up)
+// POST: Add $10 (top-up)
 export async function POST() {
   try {
     const supabase = await createClient();
@@ -47,28 +47,29 @@ export async function POST() {
 
     const { data: balance } = await adminClient
       .from('user_balances')
-      .select('coins')
+      .select('balance_usd')
       .eq('user_id', user.id)
       .single();
 
-    const currentCoins = balance?.coins ?? 0;
+    const currentBalance = balance?.balance_usd ?? 0;
+    const newBalance = parseFloat((currentBalance + 10.0).toFixed(2));
 
     const { error } = await adminClient
       .from('user_balances')
       .update({
-        coins: currentCoins + 500,
+        balance_usd: newBalance,
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', user.id);
 
     if (error) {
       return NextResponse.json(
-        { error: 'Failed to add coins' },
+        { error: 'Failed to add balance' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ coins: currentCoins + 500 });
+    return NextResponse.json({ balance: newBalance });
   } catch {
     return NextResponse.json(
       { error: 'Internal server error' },

@@ -1,4 +1,49 @@
-import { Rarity } from '@/types';
+import { Edition, Rarity } from '@/types';
+
+// --- Edition configuration ---
+
+export const EDITION_CONFIG: Record<
+  Edition,
+  {
+    label: string;
+    shortLabel: string;
+    color: string;
+    badgeClass: string;
+    priceMultiplier: number;
+  }
+> = {
+  '1st-edition': {
+    label: '1st Edition',
+    shortLabel: '1st Ed.',
+    color: '#1a1a1a',
+    badgeClass: 'bg-black text-yellow-400 border border-yellow-500',
+    priceMultiplier: 5.0,
+  },
+  shadowless: {
+    label: 'Shadowless',
+    shortLabel: 'Shadowless',
+    color: '#6B7280',
+    badgeClass: 'bg-gray-700 text-white border border-gray-500',
+    priceMultiplier: 3.0,
+  },
+  unlimited: {
+    label: 'Unlimited',
+    shortLabel: 'Unlimited',
+    color: '#2563EB',
+    badgeClass: 'bg-blue-600 text-white border border-blue-400',
+    priceMultiplier: 1.0,
+  },
+};
+
+// Sets that received 1st Edition print runs
+export const FIRST_EDITION_SET_IDS = [
+  'base1', 'base2', 'base3', 'base5',
+  'gym1', 'gym2',
+  'neo1', 'neo2', 'neo3', 'neo4',
+];
+
+// Only Base Set had the Shadowless variant
+export const SHADOWLESS_SET_IDS = ['base1'];
 
 export const RARITY_CONFIG: Record<
   Rarity,
@@ -140,6 +185,22 @@ export const RARITY_CONFIG: Record<
     label: '👑',
     order: 8,
   },
+  [Rarity.OneShiny]: {
+    color: '#E879F9',
+    glowColor: 'rgba(232, 121, 249, 0.1)',
+    borderClass: 'border-[#F0ABFC]',
+    badgeClass: 'text-[#C026D3]',
+    label: '✦',
+    order: 4,
+  },
+  [Rarity.TwoShiny]: {
+    color: '#C084FC',
+    glowColor: 'rgba(192, 132, 252, 0.1)',
+    borderClass: 'border-[#D8B4FE]',
+    badgeClass: 'text-[#9333EA]',
+    label: '✦✦',
+    order: 5,
+  },
 };
 
 // Hit slot (#10) pull rates - based on community-tracked Scarlet & Violet data
@@ -187,6 +248,8 @@ export const RARITY_ANIMATION_CONFIG: Record<
   [Rarity.TwoStar]: { tier: 'ultra', flipDuration: 1.0, preRevealDelay: 1200, glowIntensity: 0.8, glowPulse: true, particles: 'explosion', screenShake: true, screenFlash: false, crackEffect: true, showImmersive: true },
   [Rarity.ThreeStar]: { tier: 'ultra', flipDuration: 1.1, preRevealDelay: 1500, glowIntensity: 0.9, glowPulse: true, particles: 'explosion', screenShake: true, screenFlash: true, crackEffect: true, showImmersive: true },
   [Rarity.Crown]: { tier: 'ultra', flipDuration: 1.2, preRevealDelay: 2000, glowIntensity: 1.0, glowPulse: true, particles: 'shower', screenShake: true, screenFlash: true, crackEffect: true, showImmersive: true },
+  [Rarity.OneShiny]: { tier: 'high', flipDuration: 0.9, preRevealDelay: 800, glowIntensity: 0.6, glowPulse: true, particles: 'burst', screenShake: false, screenFlash: false, crackEffect: false, showImmersive: false },
+  [Rarity.TwoShiny]: { tier: 'ultra', flipDuration: 1.0, preRevealDelay: 1200, glowIntensity: 0.8, glowPulse: true, particles: 'explosion', screenShake: true, screenFlash: false, crackEffect: true, showImmersive: true },
 };
 
 // TCG Pocket hit slot (#5) pull rates
