@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, LogOut, Library } from 'lucide-react';
+import { Settings, LogOut, Library, User } from 'lucide-react';
 import { getAvatar } from '@/lib/avatars';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -93,6 +93,14 @@ export function UserMenu({ supabase, userId }: UserMenuProps) {
               <p className="text-[10px] text-muted mt-0.5">Pokemon Trainer</p>
             </div>
             <div className="py-1">
+              <Link
+                href={`/profile/${userId}`}
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
+              >
+                <User className="h-3.5 w-3.5" />
+                My Profile
+              </Link>
               <Link
                 href="/collection"
                 onClick={() => setOpen(false)}

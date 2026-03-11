@@ -3,8 +3,7 @@
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { DollarSign, ArrowRight, Sparkles } from 'lucide-react';
-import { HIT_SLOT_RATES } from '@/lib/constants';
-import { RARITY_CONFIG } from '@/lib/constants';
+import { getPriorRatesForSet, RARITY_CONFIG } from '@/lib/constants';
 import { PackCard } from './PackCard';
 import type { Pack } from '@/types';
 import Link from 'next/link';
@@ -17,9 +16,10 @@ export function FeaturedPackSpotlight({ packs }: { packs: Pack[] }) {
   const featured = packs[0];
   const remaining = packs.slice(1);
 
-  // Top 3 rarest pull rates for preview
-  const topRates = HIT_SLOT_RATES.slice(-3).reverse();
-  const totalWeight = HIT_SLOT_RATES.reduce((s, r) => s + r.weight, 0);
+  // Top 3 rarest pull rates for preview, using era-appropriate rates
+  const eraRates = getPriorRatesForSet(featured.set_id);
+  const topRates = eraRates.slice(-3).reverse();
+  const totalWeight = eraRates.reduce((s, r) => s + r.weight, 0);
 
   return (
     <motion.section

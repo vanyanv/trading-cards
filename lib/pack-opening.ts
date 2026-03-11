@@ -1,4 +1,5 @@
 import { Rarity, type Card, type PulledCard } from '@/types';
+import { type RateEntry } from './constants';
 import { rollHitSlotRarity, rollReverseHoloRarity, rollTCGPHitSlotRarity } from './rarity';
 
 /**
@@ -22,7 +23,8 @@ export async function openPack(
   setId: string,
   boosterId?: string | null,
   cardsPerPack: number = 10,
-  edition?: string | null
+  edition?: string | null,
+  hitSlotRates?: RateEntry[],
 ): Promise<PulledCard[]> {
   // Fetch all cards for this set
   let query = supabase.from('cards').select('*').eq('set_id', setId);
@@ -87,7 +89,7 @@ export async function openPack(
     pulled.push({ ...uncommonCard, is_reverse_holo: false, slot_number: 4 });
 
     // Slot 5: Hit slot
-    const hitRarity = rollTCGPHitSlotRarity();
+    const hitRarity = rollTCGPHitSlotRarity(hitSlotRates);
     const hitCard = pickCard(hitRarity);
     pulled.push({ ...hitCard, is_reverse_holo: false, slot_number: 5 });
   } else {
@@ -114,7 +116,7 @@ export async function openPack(
     pulled.push({ ...rareCard, is_reverse_holo: false, slot_number: 9 });
 
     // Slot 10: Hit slot
-    const hitRarity = rollHitSlotRarity();
+    const hitRarity = rollHitSlotRarity(hitSlotRates);
     const hitCard = pickCard(hitRarity);
     pulled.push({ ...hitCard, is_reverse_holo: false, slot_number: 10 });
   }

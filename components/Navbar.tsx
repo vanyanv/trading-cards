@@ -106,6 +106,30 @@ export function Navbar() {
             Browse
           </Link>
 
+          <Link
+            href="/community"
+            className={cn(
+              'text-sm transition-colors',
+              pathname.startsWith('/community')
+                ? 'text-foreground font-medium'
+                : 'text-muted hover:text-foreground'
+            )}
+          >
+            Community
+          </Link>
+
+          <Link
+            href="/stats"
+            className={cn(
+              'text-sm transition-colors',
+              pathname.startsWith('/stats')
+                ? 'text-foreground font-medium'
+                : 'text-muted hover:text-foreground'
+            )}
+          >
+            Stats
+          </Link>
+
           {user && (
             <Link
               href="/collection"

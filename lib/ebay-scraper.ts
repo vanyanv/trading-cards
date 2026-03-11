@@ -1,4 +1,4 @@
-import type { EbaySoldListing, PackPricing, CardSoldListing } from '@/types';
+import type { EbaySoldListing, PackPricing, CardSoldListing, Edition } from '@/types';
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -10,8 +10,21 @@ function randomUserAgent(): string {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 }
 
-function buildSearchUrl(setName: string): string {
-  const query = encodeURIComponent(`pokemon ${setName} booster pack`);
+function getEditionSearchTerms(edition?: Edition | null): string {
+  switch (edition) {
+    case '1st-edition':
+      return ' "1st edition" -unlimited -shadowless';
+    case 'shadowless':
+      return ' shadowless -"1st edition"';
+    case 'unlimited':
+      return ' unlimited -"1st edition" -shadowless';
+    default:
+      return '';
+  }
+}
+
+function buildSearchUrl(setName: string, edition?: Edition | null): string {
+  const query = encodeURIComponent(`pokemon ${setName} booster pack${getEditionSearchTerms(edition)}`);
   return `https://www.ebay.com/sch/i.html?_nkw=${query}&LH_Complete=1&LH_Sold=1&_sop=13&_ipg=60`;
 }
 
@@ -93,9 +106,10 @@ function parseSoldListings(html: string): EbaySoldListing[] {
 }
 
 export async function scrapeEbaySoldListings(
-  setName: string
+  setName: string,
+  edition?: Edition | null
 ): Promise<EbaySoldListing[]> {
-  const url = buildSearchUrl(setName);
+  const url = buildSearchUrl(setName, edition);
 
   const res = await fetch(url, {
     headers: {
@@ -132,8 +146,8 @@ export function computePackPricing(
   };
 }
 
-export function getEbaySearchUrl(setName: string): string {
-  return buildSearchUrl(setName);
+export function getEbaySearchUrl(setName: string, edition?: Edition | null): string {
+  return buildSearchUrl(setName, edition);
 }
 
 // Card-specific eBay sold listing functions

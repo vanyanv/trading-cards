@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { CollectionGrid } from '@/components/CollectionGrid';
 import type { UserCard } from '@/types';
@@ -38,6 +39,14 @@ export default async function CollectionPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-12">
+      <div className="mb-4 flex items-center justify-end">
+        <Link
+          href="/pokedex"
+          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
+        >
+          View Pokédex →
+        </Link>
+      </div>
       <CollectionGrid userCards={shaped} />
     </div>
   );

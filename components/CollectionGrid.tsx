@@ -108,6 +108,34 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
       return orderA - orderB;
     });
 
+    // Approximate packs opened: distinct (minute-truncated obtained_at, pack_opened_from) combos
+    const packSessions = new Set<string>();
+    for (const uc of userCards) {
+      if (uc.pack_opened_from) {
+        const minute = uc.obtained_at ? uc.obtained_at.slice(0, 16) : '';
+        packSessions.add(`${minute}-${uc.pack_opened_from}`);
+      }
+    }
+
+    // Sets in progress
+    const setIds = new Set<string>();
+    for (const uc of userCards) {
+      if (uc.card?.set_id) setIds.add(uc.card.set_id);
+    }
+
+    // Best pull: highest-priced card
+    let bestPull: CollectionStats['bestPull'] = null;
+    if (mostValuableCard) {
+      const bestCard = userCards.find((uc) => uc.card?.name === mostValuableCard!.name);
+      if (bestCard?.card) {
+        bestPull = {
+          name: bestCard.card.name,
+          rarity: bestCard.card.rarity,
+          date: bestCard.obtained_at,
+        };
+      }
+    }
+
     return {
       totalValue,
       totalCards: userCards.length,
@@ -117,6 +145,9 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
       rarityBreakdown,
       trendUp,
       trendDown,
+      packsOpened: packSessions.size,
+      setsInProgress: setIds.size,
+      bestPull,
     };
   }, [userCards, cardCounts]);
 

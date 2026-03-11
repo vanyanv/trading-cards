@@ -7,6 +7,7 @@ import { RareCardShowcase } from './RareCardShowcase';
 import { FeaturedPackSpotlight } from './FeaturedPackSpotlight';
 import { RecentPullsTicker } from './RecentPullsTicker';
 import { SectionDivider } from './SectionDivider';
+import { ValuePropStorytelling } from './ValuePropStorytelling';
 import type { Pack, Card, Rarity } from '@/types';
 import { rarityOrder } from '@/lib/rarity';
 import Link from 'next/link';
@@ -36,6 +37,9 @@ export function HomeContent({
     (a, b) => rarityOrder(b.rarity as Rarity) - rarityOrder(a.rarity as Rarity)
   );
   const showcaseCards = sortedFeatured.slice(0, 3);
+  const valuePropCards = sortedFeatured.length >= 6
+    ? sortedFeatured.slice(3, 6)
+    : sortedFeatured.slice(0, 3);
 
   return (
     <div className="mx-auto max-w-6xl px-6">
@@ -114,6 +118,11 @@ export function HomeContent({
       </motion.section>
 
       <SectionDivider type="Fire" />
+
+      {/* Value Prop Storytelling */}
+      <ValuePropStorytelling cards={valuePropCards} />
+
+      <SectionDivider type="Grass" />
 
       {/* Section 2: Featured Pack Spotlight */}
       <motion.div

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Sparkles, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { RARITY_CONFIG } from '@/lib/constants';
 import { rarityOrder } from '@/lib/rarity';
@@ -12,6 +12,7 @@ import { RarityBadge } from './RarityBadge';
 import { PriceChart } from './PriceChart';
 import { RecentSales } from './RecentSales';
 import { CardShowcase, useCardShowcase } from './CardShowcase';
+import { TypeParticles } from './TypeParticles';
 import type { Card, Rarity, CardDetailData, TCGPlayerVariantPrices } from '@/types';
 
 const VARIANT_LABELS: Record<string, string> = {
@@ -50,11 +51,13 @@ export function CardDetailContent({
   detail,
   ownedCount,
   isAuthenticated,
+  cardPullStats,
 }: {
   card: Card;
   detail: CardDetailData | null;
   ownedCount: number;
   isAuthenticated: boolean;
+  cardPullStats?: { pull_count: number; total_opens: number } | null;
 }) {
   const config = RARITY_CONFIG[card.rarity as Rarity];
   const { showcaseCard, openShowcase, closeShowcase } = useCardShowcase();
@@ -82,8 +85,24 @@ export function CardDetailContent({
 
   const marketPrice = variantPricing?.marketPrice ?? card.price ?? null;
 
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mq.matches);
+  }, []);
+
+  const showParticles = !prefersReducedMotion && rarityOrder(card.rarity as Rarity) >= 2;
+
   return (
-    <div className="mx-auto max-w-6xl px-6 py-12">
+    <div className="relative mx-auto max-w-6xl px-6 py-12">
+      {showParticles && (
+        <div
+          className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+          style={{ opacity: 0.15 }}
+        >
+          <TypeParticles types={card.types} count={12} />
+        </div>
+      )}
       {/* Back link */}
       <motion.div
         initial={{ opacity: 0, x: -8 }}
@@ -289,6 +308,22 @@ export function CardDetailContent({
                 value={ownedCount === 0 ? 'Not owned' : `${ownedCount}x`}
                 valueColor={ownedCount === 0 ? '#A8A29E' : undefined}
               />
+            )}
+            {cardPullStats && cardPullStats.pull_count > 0 && (
+              <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
+                <span className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Community Pulls
+                </span>
+                <span className="text-sm font-medium text-foreground">
+                  {cardPullStats.pull_count.toLocaleString()}x pulled
+                  {cardPullStats.total_opens > 0 && cardPullStats.pull_count > 0 && (
+                    <span className="ml-1.5 text-xs text-muted">
+                      (~1 in {Math.round(cardPullStats.total_opens / cardPullStats.pull_count)})
+                    </span>
+                  )}
+                </span>
+              </div>
             )}
           </div>
         </div>

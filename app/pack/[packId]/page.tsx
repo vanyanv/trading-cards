@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
-import { HIT_SLOT_RATES, TCGP_HIT_SLOT_RATES } from '@/lib/constants';
+import { getEffectiveRates } from '@/lib/pull-rate-engine';
 import { PackDetail } from '@/components/PackDetail';
-import type { Pack, Card } from '@/types';
+import type { Pack, Card, Rarity } from '@/types';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -71,12 +71,34 @@ export default async function PackDetailPage({
   const { data: { user } } = await supabase.auth.getUser();
 
   const isTCGP = typedPack.cards_per_pack === 5;
+  const typedCards = (cards || []) as Card[];
+  const slotType = isTCGP ? 'tcgp_hit_slot' : 'hit_slot';
+
+  // Fetch Bayesian-adjusted rates and observed stats in parallel
+  const [bayesianRates, observedRes] = await Promise.all([
+    getEffectiveRates(supabase, typedPack.set_id, slotType as 'hit_slot' | 'reverse_holo' | 'tcgp_hit_slot'),
+    supabase.rpc('get_pack_pull_stats', { p_set_id: typedPack.set_id, p_slot_type: slotType }),
+  ]);
+
+  // Filter to rarities present in this set and normalize to 100%
+  const setRarities = new Set(typedCards.map((c) => c.rarity as Rarity));
+  const filtered = bayesianRates.filter((r) => setRarities.has(r.rarity));
+  const ratesForNorm = filtered.length > 0 ? filtered : bayesianRates;
+  const totalWeight = ratesForNorm.reduce((s, r) => s + r.weight, 0);
+  const pullRates = ratesForNorm.map((r) => ({
+    ...r,
+    weight: parseFloat(((r.weight / totalWeight) * 100).toFixed(1)),
+  }));
+
+  const observedStats = (observedRes.data ?? []) as { rarity: string; pull_count: number; total_opens: number }[];
 
   return (
     <PackDetail
       pack={typedPack}
-      cards={(cards || []) as Card[]}
-      pullRates={isTCGP ? TCGP_HIT_SLOT_RATES : HIT_SLOT_RATES}
+      cards={typedCards}
+      pullRates={pullRates}
+      observedStats={observedStats}
+      isTCGP={isTCGP}
       isAuthenticated={!!user}
       editionVariants={editionVariants}
     />

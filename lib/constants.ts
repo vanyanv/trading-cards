@@ -206,8 +206,20 @@ export const RARITY_CONFIG: Record<
   },
 };
 
-// Hit slot (#10) pull rates - based on community-tracked Scarlet & Violet data
-export const HIT_SLOT_RATES: { rarity: Rarity; weight: number }[] = [
+// --- Era-based hit slot pull rates ---
+// Each era uses our mapped Rarity enum (sync-cards.ts maps V→DoubleRare, etc.)
+// Only eras with verified community-tracked data get custom rates; others fall back to SV.
+
+export type RateEntry = { rarity: Rarity; weight: number };
+
+export type EraConfig = {
+  name: string;
+  prefixes: string[];
+  hitSlotRates: RateEntry[];
+};
+
+// Scarlet & Violet — PokéBeach community-tracked (~10k+ pack dataset)
+const SV_HIT_RATES: RateEntry[] = [
   { rarity: Rarity.Rare, weight: 71.5 },
   { rarity: Rarity.DoubleRare, weight: 14.3 },
   { rarity: Rarity.IllustrationRare, weight: 7.5 },
@@ -215,6 +227,43 @@ export const HIT_SLOT_RATES: { rarity: Rarity; weight: number }[] = [
   { rarity: Rarity.SpecialIllustrationRare, weight: 3.0 },
   { rarity: Rarity.HyperRare, weight: 1.85 },
 ];
+
+// Sword & Shield — community-tracked (V/VMAX mapped to DoubleRare, etc.)
+const SWSH_HIT_RATES: RateEntry[] = [
+  { rarity: Rarity.Rare, weight: 70.0 },
+  { rarity: Rarity.DoubleRare, weight: 17.0 },     // V + VMAX + VSTAR
+  { rarity: Rarity.UltraRare, weight: 6.5 },        // Full Art V, Amazing/Radiant
+  { rarity: Rarity.SpecialIllustrationRare, weight: 3.5 }, // Alt Art
+  { rarity: Rarity.HyperRare, weight: 3.0 },        // Secret/Gold/Rainbow
+];
+
+// Sun & Moon — community-tracked (GX mapped to DoubleRare/UltraRare)
+const SM_HIT_RATES: RateEntry[] = [
+  { rarity: Rarity.Rare, weight: 70.0 },
+  { rarity: Rarity.DoubleRare, weight: 16.0 },      // GX
+  { rarity: Rarity.UltraRare, weight: 8.0 },        // Full Art GX
+  { rarity: Rarity.SpecialIllustrationRare, weight: 3.0 }, // Alt Art (Tag Team era)
+  { rarity: Rarity.HyperRare, weight: 3.0 },        // Rainbow/Secret
+];
+
+export const ERA_PULL_RATES: EraConfig[] = [
+  { name: 'Scarlet & Violet', prefixes: ['sv'], hitSlotRates: SV_HIT_RATES },
+  { name: 'Sword & Shield', prefixes: ['swsh'], hitSlotRates: SWSH_HIT_RATES },
+  { name: 'Sun & Moon', prefixes: ['sm'], hitSlotRates: SM_HIT_RATES },
+];
+
+/** Get the prior hit-slot rates for a set, falling back to SV rates for unverified eras. */
+export function getPriorRatesForSet(setId: string): RateEntry[] {
+  for (const era of ERA_PULL_RATES) {
+    if (era.prefixes.some((p) => setId.startsWith(p))) {
+      return era.hitSlotRates;
+    }
+  }
+  return SV_HIT_RATES; // fallback for XY, BW, HGSS, DP, Platinum, EX, Neo, WotC
+}
+
+// Keep the default export for backward compatibility
+export const HIT_SLOT_RATES: RateEntry[] = SV_HIT_RATES;
 
 export type AnimationTier = 'common' | 'mid' | 'high' | 'ultra';
 export type ParticleType = 'none' | 'sparkle' | 'burst' | 'explosion' | 'shower';

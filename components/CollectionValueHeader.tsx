@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Wallet, Gem, Crown, TrendingUp, TrendingDown } from 'lucide-react';
+import Link from 'next/link';
+import { Wallet, Gem, Crown, TrendingUp, TrendingDown, Package, Layers } from 'lucide-react';
+import { RarityDistributionBar } from '@/components/RarityDistributionBar';
 import { RARITY_CONFIG } from '@/lib/constants';
 import type { Rarity } from '@/types';
 
@@ -21,6 +23,9 @@ export interface CollectionStats {
   rarityBreakdown: RarityBreakdown[];
   trendUp: number;
   trendDown: number;
+  packsOpened?: number;
+  setsInProgress?: number;
+  bestPull?: { name: string; rarity: string; date: string } | null;
 }
 
 function AnimatedCounter({ value, prefix = '' }: { value: number; prefix?: string }) {
@@ -114,9 +119,54 @@ export function CollectionValueHeader({ stats }: { stats: CollectionStats }) {
         </div>
       </div>
 
-      {/* Rarity breakdown */}
+      {/* Extended stats row */}
+      {(stats.packsOpened != null || stats.setsInProgress != null) && (
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {stats.packsOpened != null && (
+            <div className="rounded-xl bg-surface-elevated px-3.5 py-2.5">
+              <div className="flex items-center gap-1.5">
+                <Package className="h-3 w-3 text-muted" />
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">Packs Opened</p>
+              </div>
+              <p className="mt-0.5 text-lg font-bold tabular-nums">{stats.packsOpened}</p>
+            </div>
+          )}
+          {stats.setsInProgress != null && (
+            <Link href="/pokedex" className="group rounded-xl bg-surface-elevated px-3.5 py-2.5 transition-colors hover:bg-accent/5">
+              <div className="flex items-center gap-1.5">
+                <Layers className="h-3 w-3 text-muted" />
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">Sets in Progress</p>
+              </div>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <p className="text-lg font-bold tabular-nums">{stats.setsInProgress}</p>
+                <span className="text-[10px] text-accent opacity-0 transition-opacity group-hover:opacity-100">View Pokédex →</span>
+              </div>
+            </Link>
+          )}
+          {stats.bestPull && (
+            <div className="rounded-xl bg-surface-elevated px-3.5 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">Best Pull</p>
+              <p className="mt-0.5 truncate text-sm font-bold">{stats.bestPull.name}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Rarity distribution bar */}
       {stats.rarityBreakdown.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-5">
+          <RarityDistributionBar
+            data={stats.rarityBreakdown.map((rb) => ({
+              rarity: rb.rarity,
+              count: rb.count,
+            }))}
+          />
+        </div>
+      )}
+
+      {/* Rarity breakdown pills */}
+      {stats.rarityBreakdown.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
           {stats.rarityBreakdown.map((rb, i) => {
             const config = RARITY_CONFIG[rb.rarity as Rarity];
             if (!config) return null;

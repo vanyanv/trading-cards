@@ -57,17 +57,20 @@ export default async function CardDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  let ownedCount = 0;
-  if (user) {
-    const { count } = await supabase
-      .from('user_cards')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('card_id', id);
-    ownedCount = count ?? 0;
-  }
+  const [ownedResult, cardPullRes, detail] = await Promise.all([
+    user
+      ? supabase
+          .from('user_cards')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('card_id', id)
+      : Promise.resolve({ count: 0 }),
+    supabase.rpc('get_card_pull_count', { p_card_id: id }),
+    fetchCardDetail(typedCard.tcg_id),
+  ]);
 
-  const detail = await fetchCardDetail(typedCard.tcg_id);
+  const ownedCount = ('count' in ownedResult ? ownedResult.count : 0) ?? 0;
+  const cardPullStats = cardPullRes.data as { pull_count: number; total_opens: number } | null;
 
   return (
     <CardDetailContent
@@ -75,6 +78,7 @@ export default async function CardDetailPage({
       detail={detail}
       ownedCount={ownedCount}
       isAuthenticated={!!user}
+      cardPullStats={cardPullStats}
     />
   );
 }

@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, DollarSign, Layers, Hash, Crown, Sparkles } from 'lucide-react';
+import { ArrowLeft, DollarSign, Layers, Hash, Crown, Sparkles, Info } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { RARITY_CONFIG, EDITION_CONFIG, EDITION_ORDER } from '@/lib/constants';
 import { rarityOrder } from '@/lib/rarity';
@@ -17,12 +17,16 @@ export function PackDetail({
   pack,
   cards,
   pullRates,
+  observedStats = [],
+  isTCGP = false,
   isAuthenticated,
   editionVariants = [],
 }: {
   pack: Pack;
   cards: Card[];
   pullRates: { rarity: Rarity; weight: number }[];
+  observedStats?: { rarity: string; pull_count: number; total_opens: number }[];
+  isTCGP?: boolean;
   isAuthenticated: boolean;
   editionVariants?: Pack[];
 }) {
@@ -286,7 +290,7 @@ export function PackDetail({
 
         <div className="mt-8">
           {activeTab === 'rates' && (
-            <PullRatesSection pullRates={pullRates} />
+            <PullRatesSection pullRates={pullRates} observedStats={observedStats} isTCGP={isTCGP} />
           )}
           {activeTab === 'cards' && (
             <CardsSection
@@ -304,53 +308,139 @@ export function PackDetail({
 }
 
 /* -- Pull Rates Section -- */
+
+const PACK_SLOTS_TCG = [
+  { slots: '1–4', label: 'Common', rarity: 'Common' as Rarity, count: 4 },
+  { slots: '5–7', label: 'Uncommon', rarity: 'Uncommon' as Rarity, count: 3 },
+  { slots: '8', label: 'Reverse Holo', rarity: 'Rare' as Rarity, count: 1 },
+  { slots: '9', label: 'Rare (guaranteed)', rarity: 'Rare' as Rarity, count: 1 },
+  { slots: '10', label: 'Hit Slot', rarity: null, count: 1 },
+];
+
+const PACK_SLOTS_TCGP = [
+  { slots: '1–3', label: '◆ (common)', rarity: 'One Diamond' as Rarity, count: 3 },
+  { slots: '4', label: '◆◆ (uncommon)', rarity: 'Two Diamond' as Rarity, count: 1 },
+  { slots: '5', label: 'Hit Slot', rarity: null, count: 1 },
+];
+
 function PullRatesSection({
   pullRates,
+  observedStats = [],
+  isTCGP = false,
 }: {
   pullRates: { rarity: Rarity; weight: number }[];
+  observedStats?: { rarity: string; pull_count: number; total_opens: number }[];
+  isTCGP?: boolean;
 }) {
   const maxWeight = Math.max(...pullRates.map((r) => r.weight));
+  const packSlots = isTCGP ? PACK_SLOTS_TCGP : PACK_SLOTS_TCG;
+
+  // Get total community opens from observed stats
+  const totalOpens = observedStats.length > 0
+    ? Math.max(...observedStats.map((s) => s.total_opens))
+    : 0;
+
+  // Build lookup for observed counts
+  const observedMap = new Map(observedStats.map((s) => [s.rarity, s.pull_count]));
 
   return (
-    <div className="space-y-5">
-      <p className="text-xs leading-relaxed text-muted">
-        Hit slot (#10) pull rates based on community-tracked Scarlet &amp; Violet
-        data. Slots 1-4 Common, 5-7 Uncommon, 8 Reverse Holo, 9 guaranteed
-        Rare.
-      </p>
-      <div className="space-y-3">
-        {[...pullRates].reverse().map((rate) => {
-          const config = RARITY_CONFIG[rate.rarity];
-          const pct = (rate.weight / maxWeight) * 100;
-          return (
-            <div key={rate.rarity} className="flex items-center gap-4">
-              <div className="w-32 shrink-0">
-                <RarityBadge rarity={rate.rarity} />
-              </div>
-              <div className="flex-1">
-                <div className="h-2.5 overflow-hidden rounded-full bg-surface-elevated">
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: config.color }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={{
-                      duration: 0.6,
-                      delay: 0.1,
-                      ease: [0.16, 1, 0.3, 1],
-                    }}
+    <div className="space-y-8">
+      {/* Pack composition */}
+      <div>
+        <h4 className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-dim">
+          Pack Composition
+        </h4>
+        <div className="space-y-2">
+          {packSlots.map((slot) => (
+            <div key={slot.slots} className="flex items-center gap-3 text-sm">
+              <span className="w-10 shrink-0 text-right font-mono text-xs text-muted-dim">
+                {slot.slots}
+              </span>
+              <span className="h-px w-3 bg-border" />
+              {slot.rarity ? (
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: RARITY_CONFIG[slot.rarity]?.color ?? '#9CA3AF' }}
                   />
+                  <span className="text-foreground">{slot.label}</span>
+                </div>
+              ) : (
+                <span className="font-medium text-accent">{slot.label} ↓</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Hit slot odds */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-dim">
+            Hit Slot Odds
+          </h4>
+          {totalOpens > 0 && (
+            <span className="text-xs text-muted">
+              Based on {totalOpens.toLocaleString()} pack opens
+            </span>
+          )}
+        </div>
+        <div className="space-y-3">
+          {[...pullRates].reverse().map((rate) => {
+            const config = RARITY_CONFIG[rate.rarity];
+            const pct = (rate.weight / maxWeight) * 100;
+            const observed = observedMap.get(rate.rarity) ?? 0;
+            const oneInX = totalOpens > 0 && observed > 0
+              ? Math.round(totalOpens / observed)
+              : null;
+
+            return (
+              <div key={rate.rarity} className="flex items-center gap-4">
+                <div className="w-32 shrink-0">
+                  <RarityBadge rarity={rate.rarity} />
+                </div>
+                <div className="flex-1">
+                  <div className="h-2.5 overflow-hidden rounded-full bg-surface-elevated">
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: config.color }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{
+                        duration: 0.6,
+                        delay: 0.1,
+                        ease: [0.16, 1, 0.3, 1],
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span
+                    className="w-14 text-right text-sm font-bold tabular-nums"
+                    style={{ color: config.color }}
+                  >
+                    {rate.weight}%
+                  </span>
+                  {oneInX && (
+                    <span className="w-20 text-right text-xs tabular-nums text-muted">
+                      1 in {oneInX}
+                    </span>
+                  )}
                 </div>
               </div>
-              <span
-                className="w-14 shrink-0 text-right text-sm font-bold tabular-nums"
-                style={{ color: config.color }}
-              >
-                {rate.weight}%
-              </span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+
+        {totalOpens > 0 && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-border bg-surface-elevated px-3 py-2.5">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-dim" />
+            <p className="text-[11px] leading-relaxed text-muted">
+              Rates are Bayesian-adjusted, blending community priors with observed data from{' '}
+              {totalOpens.toLocaleString()} opens. As more packs are opened, rates converge toward actual pull probabilities.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

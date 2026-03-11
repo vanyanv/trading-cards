@@ -1,15 +1,16 @@
 import { Rarity } from '@/types';
-import { HIT_SLOT_RATES, TCGP_HIT_SLOT_RATES } from './constants';
+import { HIT_SLOT_RATES, TCGP_HIT_SLOT_RATES, type RateEntry } from './constants';
 
 /**
- * Roll the hit slot (#10) rarity based on real Pokemon TCG pull rates.
- * Uses weighted random selection.
+ * Roll the hit slot (#10) rarity using weighted random selection.
+ * Accepts optional rates for Bayesian-adjusted pull rates; falls back to static SV rates.
  */
-export function rollHitSlotRarity(): Rarity {
-  const totalWeight = HIT_SLOT_RATES.reduce((sum, r) => sum + r.weight, 0);
+export function rollHitSlotRarity(rates?: RateEntry[]): Rarity {
+  const entries = rates ?? HIT_SLOT_RATES;
+  const totalWeight = entries.reduce((sum, r) => sum + r.weight, 0);
   let roll = Math.random() * totalWeight;
 
-  for (const rate of HIT_SLOT_RATES) {
+  for (const rate of entries) {
     roll -= rate.weight;
     if (roll <= 0) return rate.rarity;
   }
@@ -29,13 +30,15 @@ export function rollReverseHoloRarity(): Rarity {
 }
 
 /**
- * Roll the TCGP hit slot (#5) rarity based on TCG Pocket pull rates.
+ * Roll the TCGP hit slot (#5) rarity using weighted random selection.
+ * Accepts optional rates for Bayesian-adjusted pull rates; falls back to static TCGP rates.
  */
-export function rollTCGPHitSlotRarity(): Rarity {
-  const totalWeight = TCGP_HIT_SLOT_RATES.reduce((sum, r) => sum + r.weight, 0);
+export function rollTCGPHitSlotRarity(rates?: RateEntry[]): Rarity {
+  const entries = rates ?? TCGP_HIT_SLOT_RATES;
+  const totalWeight = entries.reduce((sum, r) => sum + r.weight, 0);
   let roll = Math.random() * totalWeight;
 
-  for (const rate of TCGP_HIT_SLOT_RATES) {
+  for (const rate of entries) {
     roll -= rate.weight;
     if (roll <= 0) return rate.rarity;
   }

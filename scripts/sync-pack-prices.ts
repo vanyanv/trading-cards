@@ -51,8 +51,32 @@ function getEraFallbackPrice(setId: string): number {
   return 4.49;
 }
 
-async function scrapePackPrice(setName: string): Promise<number | null> {
-  const query = encodeURIComponent(`pokemon ${setName} booster pack -box -etb -elite`);
+function getEditionSearchTerms(edition?: string | null): string {
+  switch (edition) {
+    case '1st-edition':
+      return ' "1st edition" -unlimited -shadowless';
+    case 'shadowless':
+      return ' shadowless -"1st edition"';
+    case 'unlimited':
+      return ' unlimited -"1st edition" -shadowless';
+    default:
+      return '';
+  }
+}
+
+function getMaxPrice(edition?: string | null): number {
+  switch (edition) {
+    case '1st-edition':
+      return 50000;
+    case 'shadowless':
+      return 15000;
+    default:
+      return 500;
+  }
+}
+
+async function scrapePackPrice(setName: string, edition?: string | null): Promise<number | null> {
+  const query = encodeURIComponent(`pokemon ${setName} booster pack -box -etb -elite${getEditionSearchTerms(edition)}`);
   const url = `https://www.ebay.com/sch/i.html?_nkw=${query}&LH_Complete=1&LH_Sold=1&_sop=13&_ipg=60`;
 
   try {
@@ -89,8 +113,8 @@ async function scrapePackPrice(setName: string): Promise<number | null> {
     const count = Math.min(titles.length, prices.length);
     for (let i = 0; i < count; i++) {
       if (EXCLUDE_PATTERNS.some((p) => p.test(titles[i]))) continue;
-      // Single booster packs are typically $2-$500
-      if (prices[i] >= 1 && prices[i] <= 500) {
+      const maxPrice = getMaxPrice(edition);
+      if (prices[i] >= 1 && prices[i] <= maxPrice) {
         validPrices.push(prices[i]);
       }
     }
@@ -116,7 +140,7 @@ async function main() {
 
   const { data: packs, error } = await supabase
     .from('packs')
-    .select('id, set_id, set_name, price_usd')
+    .select('id, set_id, set_name, price_usd, edition')
     .order('set_name');
 
   if (error || !packs) {
@@ -134,7 +158,7 @@ async function main() {
     // Rate limit: wait between requests to avoid being blocked
     await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1000));
 
-    const ebayPrice = await scrapePackPrice(pack.set_name);
+    const ebayPrice = await scrapePackPrice(pack.set_name, pack.edition);
 
     let priceUsd: number;
     let source: string;
@@ -161,7 +185,8 @@ async function main() {
       const change = pack.price_usd
         ? ` (was $${pack.price_usd})`
         : '';
-      console.log(`  ${pack.set_name}: $${priceUsd.toFixed(2)} [${source}]${change}`);
+      const editionLabel = pack.edition ? ` [${pack.edition}]` : '';
+      console.log(`  ${pack.set_name}${editionLabel}: $${priceUsd.toFixed(2)} [${source}]${change}`);
     }
   }
 

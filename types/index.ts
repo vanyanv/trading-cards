@@ -192,3 +192,51 @@ export interface EbayActiveListing {
   url: string;
   seller: string;
 }
+
+// Gamification types
+
+export interface LeaderboardEntry {
+  rank: number;
+  user_id: string;
+  display_name: string | null;
+  avatar_id: string | null;
+  member_since: string;
+  unique_cards: number;
+  total_cards: number;
+  collection_value: number;
+  rarest_card: { name: string; rarity: string; image_url: string } | null;
+}
+
+export interface SetCompletion {
+  set_id: string;
+  set_name: string;
+  owned_count: number;
+  total_count: number;
+  set_image_url?: string;
+}
+
+export interface UserProfileStats {
+  total_value: number;
+  unique_cards: number;
+  total_cards: number;
+  packs_opened: number;
+  sets_started: number;
+  member_since: string;
+}
+
+export interface PokedexLeaderboardEntry {
+  rank: number;
+  user_id: string;
+  display_name: string | null;
+  avatar_id: string | null;
+  unique_cards: number;
+  sets_started: number;
+}
+
+export interface PokedexCard {
+  card_id: string;
+  card_name: string;
+  card_image_url: string;
+  card_rarity: string;
+  owned: boolean;
+}

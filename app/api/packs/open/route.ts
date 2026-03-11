@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { openPack } from '@/lib/pack-opening';
+import { getEffectiveRates } from '@/lib/pull-rate-engine';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export async function POST(request: Request) {
@@ -76,8 +77,13 @@ export async function POST(request: Request) {
       );
     }
 
+    // Get Bayesian-adjusted pull rates for this set
+    const isTCGP = pack.cards_per_pack === 5;
+    const slotType = isTCGP ? 'tcgp_hit_slot' : 'hit_slot';
+    const effectiveRates = await getEffectiveRates(adminClient, pack.set_id, slotType as 'hit_slot' | 'tcgp_hit_slot');
+
     // Open pack (roll cards)
-    const pulledCards = await openPack(adminClient, pack.set_id, pack.booster_id, pack.cards_per_pack, pack.edition);
+    const pulledCards = await openPack(adminClient, pack.set_id, pack.booster_id, pack.cards_per_pack, pack.edition, effectiveRates);
 
     // Insert pulled cards into user_cards
     const userCardRows = pulledCards.map((card) => ({
@@ -110,6 +116,18 @@ export async function POST(request: Request) {
 
     // Increment open count for trending (fire-and-forget)
     adminClient.rpc('increment_open_count', { pack_id: packId }).then();
+
+    // Record hit slot pull for Bayesian rate tracking (fire-and-forget)
+    const hitSlotCard = pulledCards[pulledCards.length - 1]; // last card is always the hit slot
+    if (hitSlotCard) {
+      adminClient
+        .rpc('record_pull_stats', {
+          p_set_id: pack.set_id,
+          p_rarity: hitSlotCard.rarity,
+          p_slot_type: slotType,
+        })
+        .then();
+    }
 
     return NextResponse.json({
       cards: pulledCards,
