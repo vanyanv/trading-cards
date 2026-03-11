@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { ChevronUp, ChevronDown, TrendingUp, TrendingDown, Minus, HandCoins } from 'lucide-react';
 import { RarityBadge } from './RarityBadge';
 import { RARITY_CONFIG } from '@/lib/constants';
@@ -182,11 +183,12 @@ export function CardTable({
                 )}
                 <td className="px-3 py-2 tabular-nums text-muted-dim">{num}</td>
                 <td className="px-2 py-1">
-                  <img
+                  <Image
                     src={card.image_url}
                     alt={card.name}
+                    width={24}
+                    height={32}
                     className="h-8 w-6 rounded-sm object-contain"
-                    loading="lazy"
                   />
                 </td>
                 <td className="px-3 py-2 font-medium">{card.name}</td>

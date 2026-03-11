@@ -251,6 +251,7 @@ function BoosterPackVisual({ packName, packImage, edition }: { packName: string;
             alt={packName}
             className="h-[80%] w-auto drop-shadow-2xl"
             style={{ filter: 'drop-shadow(0 0 20px rgba(0,0,0,0.5))' }}
+            loading="eager"
           />
         </div>
         {setName && (
@@ -313,6 +314,16 @@ export function PackOpeningAnimation({
   const [typeRevealing, setTypeRevealing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Preload all card images to prevent blank flashes during reveal
+  useEffect(() => {
+    const urls = cards.map(c => c.image_url_hires || c.image_url);
+    const uniqueUrls = [...new Set(urls)];
+    uniqueUrls.forEach(url => {
+      const img = new window.Image();
+      img.src = url;
+    });
+  }, [cards]);
 
   // Order cards by slot_number (like a real pack)
   const orderedCards = useMemo(

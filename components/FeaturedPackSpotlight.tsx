@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { DollarSign, ArrowRight, Sparkles } from 'lucide-react';
 import { HIT_SLOT_RATES } from '@/lib/constants';
 import { RARITY_CONFIG } from '@/lib/constants';
@@ -49,11 +50,14 @@ export function FeaturedPackSpotlight({ packs }: { packs: Pack[] }) {
         <Link href={`/pack/${featured.id}`} className="flex flex-col sm:flex-row items-center gap-6 p-6 sm:p-8">
           {/* Pack image */}
           <div className="relative shrink-0 w-[200px] sm:w-[240px]">
-            <div className="aspect-[3/4] overflow-hidden rounded-2xl bg-surface-elevated">
+            <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-surface-elevated">
               {(featured.featured_card_image || featured.image_url) && (
-                <img
+                <Image
                   src={featured.featured_card_image || featured.image_url}
                   alt={featured.name}
+                  fill
+                  sizes="(max-width: 640px) 200px, 240px"
+                  priority
                   className={`h-full w-full ${featured.featured_card_image ? 'object-cover' : 'object-contain p-4'}`}
                 />
               )}

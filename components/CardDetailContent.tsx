@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -108,9 +109,13 @@ export function CardDetailContent({
         {/* Left: Card Image */}
         <div className="flex flex-col items-center gap-3">
           <div className="overflow-hidden rounded-2xl border border-border shadow-warm-lg">
-            <img
+            <Image
               src={card.image_url_hires || card.image_url}
               alt={card.name}
+              width={400}
+              height={560}
+              sizes="(max-width: 1024px) 100vw, 400px"
+              priority
               className="w-full max-w-sm"
             />
           </div>

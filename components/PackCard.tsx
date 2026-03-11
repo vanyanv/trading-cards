@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { DollarSign, ArrowRight, Flame } from 'lucide-react';
 import type { Pack, Edition } from '@/types';
 import { EDITION_CONFIG } from '@/lib/constants';
@@ -63,9 +64,11 @@ export function PackCard({
         >
           <div className="relative aspect-[3/4] overflow-hidden bg-surface-elevated">
             {(pack.featured_card_image || pack.image_url) && (
-              <img
+              <Image
                 src={pack.featured_card_image || pack.image_url}
                 alt={pack.name}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                 className={`h-full w-full transition-transform duration-500 ease-out group-hover:scale-[1.07] ${pack.featured_card_image ? 'object-cover' : 'object-contain p-5'}`}
               />
             )}

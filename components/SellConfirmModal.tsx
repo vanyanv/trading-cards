@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import { X, DollarSign, CheckCircle2, Loader2 } from 'lucide-react';
 import { RarityBadge } from './RarityBadge';
 import type { Card, Rarity } from '@/types';
@@ -105,9 +106,11 @@ export function SellConfirmModal({
                     transition={{ delay: i * 0.03 }}
                     className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0"
                   >
-                    <img
+                    <Image
                       src={item.card.image_url}
                       alt={item.card.name}
+                      width={36}
+                      height={48}
                       className="h-12 w-9 rounded object-contain"
                     />
                     <div className="flex-1 min-w-0">

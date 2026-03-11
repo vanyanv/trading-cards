@@ -94,7 +94,10 @@ export function RecentPullsTicker({ pulls }: { pulls: RecentPull[] }) {
                 <img
                   src={pull.card.image_url}
                   alt={pull.card.name}
+                  width={48}
+                  height={64}
                   className="h-16 w-12 rounded-md object-contain"
+                  loading="lazy"
                 />
                 <div className="min-w-0">
                   <p className="truncate text-xs font-bold text-foreground max-w-30">

@@ -138,6 +138,8 @@ export function ImmersiveCard({ card, onClose }: ImmersiveCardProps) {
               <img
                 src={card.image_url_hires || card.image_url}
                 alt={card.name}
+                width={320}
+                height={448}
                 className="h-auto w-full rounded-2xl"
                 draggable={false}
               />

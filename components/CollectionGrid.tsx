@@ -24,6 +24,10 @@ function computeSellPrice(price: number | undefined): number {
   return parseFloat(((price ?? 0) * SELL_RATE).toFixed(2));
 }
 
+function cardKey(card: UserCard): string {
+  return `${card.card_id}-${card.is_reverse_holo}-${card.edition || 'none'}`;
+}
+
 export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -185,7 +189,7 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
     // Find the key for this card in cardCounts
     const entry = cardCounts.find(({ card }) => card.card_id === cardId);
     if (entry) {
-      const key = `${entry.card.card_id}-${entry.card.is_reverse_holo}`;
+      const key = cardKey(entry.card);
       toggleSelect(key);
     }
   }, [cardCounts, toggleSelect]);
@@ -194,7 +198,7 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
   const selectedCardIds = useMemo(() => {
     const ids = new Set<string>();
     for (const key of selectedKeys) {
-      const entry = cardCounts.find(({ card }) => `${card.card_id}-${card.is_reverse_holo}` === key);
+      const entry = cardCounts.find(({ card }) => cardKey(card) === key);
       if (entry?.card.card_id) ids.add(entry.card.card_id);
     }
     return ids;
@@ -218,7 +222,7 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
     const items: { card: Card; quantity: number; sellPrice: number }[] = [];
 
     for (const key of selectedKeys) {
-      const entry = cardCounts.find(({ card }) => `${card.card_id}-${card.is_reverse_holo}` === key);
+      const entry = cardCounts.find(({ card }) => cardKey(card) === key);
       if (!entry?.card.card) continue;
       const sellPrice = computeSellPrice(entry.card.card.price);
       // Sell one copy per selection
@@ -233,7 +237,7 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
   // Quick sell single card
   const quickSellData = useMemo(() => {
     if (!quickSellKey) return null;
-    const entry = cardCounts.find(({ card }) => `${card.card_id}-${card.is_reverse_holo}` === quickSellKey);
+    const entry = cardCounts.find(({ card }) => cardKey(card) === quickSellKey);
     if (!entry?.card.card) return null;
     const sellPrice = computeSellPrice(entry.card.card.price);
     return {
@@ -251,7 +255,7 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
   const handleQuickSellByCardId = useCallback((cardId: string) => {
     const entry = cardCounts.find(({ card }) => card.card_id === cardId);
     if (entry) {
-      handleQuickSell(`${entry.card.card_id}-${entry.card.is_reverse_holo}`);
+      handleQuickSell(cardKey(entry.card));
     }
   }, [cardCounts, handleQuickSell]);
 
@@ -265,13 +269,13 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
 
     if (quickSellKey) {
       // Quick sell single card
-      const entry = cardCounts.find(({ card }) => `${card.card_id}-${card.is_reverse_holo}` === quickSellKey);
+      const entry = cardCounts.find(({ card }) => cardKey(card) === quickSellKey);
       idsToSell = entry ? [entry.allIds[0]] : [];
     } else {
       // Bulk sell mode
       idsToSell = [];
       for (const key of selectedKeys) {
-        const entry = cardCounts.find(({ card }) => `${card.card_id}-${card.is_reverse_holo}` === key);
+        const entry = cardCounts.find(({ card }) => cardKey(card) === key);
         if (entry) {
           idsToSell.push(entry.allIds[0]);
         }
@@ -423,7 +427,7 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                 <AnimatePresence mode="popLayout">
                   {filtered.map(({ card, count }, i) => {
-                    const key = `${card.card_id}-${card.is_reverse_holo}`;
+                    const key = cardKey(card);
                     const isSelected = selectedKeys.has(key);
                     return card.card ? (
                       <motion.div
@@ -456,7 +460,7 @@ export function CollectionGrid({ userCards }: { userCards: UserCard[] }) {
             ) : viewMode === 'list' ? (
               <div className="space-y-0.5">
                 {filtered.map(({ card, count }) => {
-                  const key = `${card.card_id}-${card.is_reverse_holo}`;
+                  const key = cardKey(card);
                   const isSelected = selectedKeys.has(key);
                   return card.card ? (
                     <div key={key} className="relative">

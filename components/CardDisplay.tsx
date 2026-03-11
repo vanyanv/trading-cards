@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { TrendingUp, TrendingDown, Minus, Sparkles, HandCoins } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { RARITY_CONFIG, EDITION_CONFIG } from '@/lib/constants';
@@ -76,11 +77,12 @@ export function CardDisplay({
           : 'border-border hover:border-border'
       )}>
         <div className="relative aspect-[2.5/3.5] overflow-hidden">
-          <img
+          <Image
             src={card.image_url}
             alt={card.name}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="h-full w-full object-contain"
-            loading="lazy"
           />
           {isReverseHolo && (
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-white/10" />

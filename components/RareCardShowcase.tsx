@@ -46,10 +46,15 @@ export function RareCardShowcase({ cards }: { cards: FeaturedCard[] }) {
             />
             <div className="relative w-[180px] sm:w-[200px] lg:w-[220px] overflow-hidden rounded-xl shadow-warm-lg">
               <img
-                src={card.image_url_hires || card.image_url}
+                src={card.image_url}
                 alt={card.name}
+                width={220}
+                height={308}
                 className="w-full select-none"
                 draggable={false}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
               />
               {/* Holographic overlay */}
               <div className="holo-overlay active absolute inset-0 rounded-xl" />

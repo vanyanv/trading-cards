@@ -171,10 +171,15 @@ function CardSlot({
             className="relative"
           >
             <img
-              src={card.image_url_hires || card.image_url}
+              src={card.image_url}
               alt={card.name}
+              width={170}
+              height={238}
               className="rounded-xl shadow-warm-lg select-none pointer-events-none"
               draggable={false}
+              loading="eager"
+              decoding="async"
+              fetchPriority={position.z >= 3 ? 'high' : 'auto'}
             />
             {/* Holographic shimmer on front-most card */}
             {position.z >= 4 && (
