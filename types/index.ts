@@ -61,6 +61,7 @@ export interface Pack {
   price_source?: 'tcgplayer' | 'ebay' | 'estimate' | null;
   price_updated_at?: string | null;
   created_at: string;
+  release_date?: string | null;
 }
 
 export interface UserCard {

@@ -314,6 +314,14 @@ export const TCGP_HIT_SLOT_RATES: { rarity: Rarity; weight: number }[] = [
   { rarity: Rarity.Crown, weight: 0.5 },
 ];
 
+export const TCGP_RELEASE_DATES: Record<string, string> = {
+  'A1': '2024-10-30',
+  'A1a': '2024-12-17',
+  'A2': '2025-01-29',
+  'A2a': '2025-03-01',
+  'A2b': '2025-05-29',
+};
+
 export const CARDS_PER_PACK = 10;
 export const TCGP_CARDS_PER_PACK = 5;
 export const STARTING_BALANCE_USD = 10.0;

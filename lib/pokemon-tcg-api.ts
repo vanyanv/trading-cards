@@ -131,6 +131,12 @@ export async function fetchTCGPCard(cardId: string, retries = 3): Promise<TCGPCa
   throw new Error(`Failed to fetch TCGP card ${cardId} after ${retries} retries`);
 }
 
+export async function fetchSetDetail(setId: string): Promise<SDKSet> {
+  const set = await tcgdex.set.get(setId);
+  if (!set) throw new Error(`Set ${setId} not found`);
+  return set;
+}
+
 // --- Booster set discovery ---
 
 // Series that contain purchasable booster expansion sets
