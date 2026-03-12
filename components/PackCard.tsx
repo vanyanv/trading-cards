@@ -14,9 +14,12 @@ function formatReleaseDate(dateStr: string): string {
 }
 
 function isNew(pack: Pack): boolean {
-  const dateStr = pack.release_date || pack.created_at;
-  const diff = Date.now() - new Date(dateStr).getTime();
-  return diff < 30 * 24 * 60 * 60 * 1000; // 30 days for release dates
+  if (pack.release_date) {
+    const diff = Date.now() - new Date(pack.release_date).getTime();
+    return diff < 30 * 24 * 60 * 60 * 1000; // 30 days for actual release dates
+  }
+  const diff = Date.now() - new Date(pack.created_at).getTime();
+  return diff < 7 * 24 * 60 * 60 * 1000; // 7 days for created_at fallback
 }
 
 export function PackCard({

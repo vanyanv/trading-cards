@@ -344,7 +344,13 @@ async function syncSet(setId: string, report: SyncReport) {
   // Create pack entry/entries for this set
   if (cards.length > 0) {
     const set = cards[0].set;
-    const fullSet = await fetchSetDetail(setId);
+    let releaseDate: string | null = null;
+    try {
+      const fullSet = await fetchSetDetail(setId);
+      releaseDate = fullSet.releaseDate || null;
+    } catch (err) {
+      console.warn(`  Could not fetch set detail for release date: ${(err as Error).message}`);
+    }
     const basePrice = getEraFallbackPrice(set.id);
     const imageUrl = set.logo ? `${set.logo}.png` : '';
 
@@ -380,7 +386,7 @@ async function syncSet(setId: string, report: SyncReport) {
           set_name: set.name,
           edition,
           available: true,
-          release_date: fullSet.releaseDate || null,
+          release_date: releaseDate,
         };
 
         let packError;
@@ -408,7 +414,7 @@ async function syncSet(setId: string, report: SyncReport) {
           set_id: set.id,
           set_name: set.name,
           available: true,
-          release_date: fullSet.releaseDate || null,
+          release_date: releaseDate,
         },
         { onConflict: 'set_id' }
       );
