@@ -13,6 +13,11 @@ import { queryKeys } from '@/lib/query/queryKeys';
 import { fetchAvailablePacks } from '@/lib/query/fetchers';
 import { usePrefetchPackOnHover } from '@/lib/hooks/usePrefetchOnHover';
 
+function formatReleaseDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00Z');
+  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
 type SortOption = 'popular' | 'newest' | 'name' | 'price-asc' | 'price-desc';
 type PriceRange = 'all' | 'low' | 'mid' | 'high';
 
@@ -113,8 +118,11 @@ export function BrowsePacks({ packs: initialPacks }: { packs: Pack[] }) {
           return (a.price_usd ?? 0) - (b.price_usd ?? 0);
         case 'price-desc':
           return (b.price_usd ?? 0) - (a.price_usd ?? 0);
-        case 'newest':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'newest': {
+          const aDate = a.release_date || a.created_at;
+          const bDate = b.release_date || b.created_at;
+          return new Date(bDate).getTime() - new Date(aDate).getTime();
+        }
         case 'popular':
         default:
           return b.open_count - a.open_count;
@@ -372,6 +380,11 @@ export function BrowsePacks({ packs: initialPacks }: { packs: Pack[] }) {
                         <h3 className="mt-1.5 font-heading text-sm font-bold leading-tight text-foreground">
                           {pack.name}
                         </h3>
+                        {pack.release_date && (
+                          <p className="mt-1 text-[10px] text-muted-dim">
+                            {formatReleaseDate(pack.release_date)}
+                          </p>
+                        )}
 
                         <div className="mt-3.5 flex items-center justify-between border-t border-border-subtle pt-3">
                           <div className="flex items-center gap-1.5 text-sm font-bold text-foreground">

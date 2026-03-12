@@ -8,9 +8,15 @@ import type { Pack, Edition } from '@/types';
 import { EDITION_CONFIG } from '@/lib/constants';
 import Link from 'next/link';
 
-function isNew(createdAt: string): boolean {
-  const diff = Date.now() - new Date(createdAt).getTime();
-  return diff < 7 * 24 * 60 * 60 * 1000; // 7 days
+function formatReleaseDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00Z');
+  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+function isNew(pack: Pack): boolean {
+  const dateStr = pack.release_date || pack.created_at;
+  const diff = Date.now() - new Date(dateStr).getTime();
+  return diff < 30 * 24 * 60 * 60 * 1000; // 30 days for release dates
 }
 
 export function PackCard({
@@ -39,7 +45,7 @@ export function PackCard({
     setIsHovered(false);
   }
 
-  const packIsNew = isNew(pack.created_at);
+  const packIsNew = isNew(pack);
 
   return (
     <motion.div
@@ -99,6 +105,11 @@ export function PackCard({
             <h3 className="mt-1.5 font-heading text-sm font-bold leading-tight text-foreground">
               {pack.name}
             </h3>
+            {pack.release_date && (
+              <p className="mt-1 text-[10px] text-muted-dim">
+                {formatReleaseDate(pack.release_date)}
+              </p>
+            )}
 
             <div className="mt-3.5 flex items-center justify-between border-t border-border-subtle pt-3">
               <div className="flex items-center gap-1 text-sm font-bold text-foreground">
