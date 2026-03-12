@@ -1,4 +1,4 @@
-import type { EbaySoldListing, PackPricing, CardSoldListing, Edition } from '@/types';
+import type { EbaySoldListing, CardSoldListing, Edition } from '@/types';
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -8,24 +8,6 @@ const USER_AGENTS = [
 
 function randomUserAgent(): string {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-}
-
-function getEditionSearchTerms(edition?: Edition | null): string {
-  switch (edition) {
-    case '1st-edition':
-      return ' "1st edition" -unlimited -shadowless';
-    case 'shadowless':
-      return ' shadowless -"1st edition"';
-    case 'unlimited':
-      return ' unlimited -"1st edition" -shadowless';
-    default:
-      return '';
-  }
-}
-
-function buildSearchUrl(setName: string, edition?: Edition | null): string {
-  const query = encodeURIComponent(`pokemon ${setName} booster pack${getEditionSearchTerms(edition)}`);
-  return `https://www.ebay.com/sch/i.html?_nkw=${query}&LH_Complete=1&LH_Sold=1&_sop=13&_ipg=60`;
 }
 
 // Filters out listings that are likely bundles, lots, or non-pack items
@@ -105,49 +87,75 @@ function parseSoldListings(html: string): EbaySoldListing[] {
   return listings;
 }
 
-export async function scrapeEbaySoldListings(
+// Pack-specific eBay sold listing functions
+
+function getEditionSearchTerms(edition?: Edition | null): string {
+  switch (edition) {
+    case '1st-edition':
+      return ' "1st edition" -unlimited -shadowless';
+    case 'shadowless':
+      return ' shadowless -"1st edition"';
+    case 'unlimited':
+      return ' unlimited -"1st edition" -shadowless';
+    default:
+      return '';
+  }
+}
+
+function getMaxPrice(edition?: Edition | null): number {
+  switch (edition) {
+    case '1st-edition':
+      return 50000;
+    case 'shadowless':
+      return 15000;
+    default:
+      return 500;
+  }
+}
+
+export async function scrapePackSoldPrice(
   setName: string,
   edition?: Edition | null
-): Promise<EbaySoldListing[]> {
-  const url = buildSearchUrl(setName, edition);
+): Promise<number | null> {
+  const query = encodeURIComponent(
+    `pokemon ${setName} booster pack -box -etb -elite${getEditionSearchTerms(edition)}`
+  );
+  const url = `https://www.ebay.com/sch/i.html?_nkw=${query}&LH_Complete=1&LH_Sold=1&_sop=13&_ipg=60`;
 
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': randomUserAgent(),
-      Accept:
-        'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-  });
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': randomUserAgent(),
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
 
-  if (!res.ok) {
-    throw new Error(`eBay fetch failed: ${res.status}`);
+    if (!res.ok) return null;
+
+    const html = await res.text();
+    const listings = parseSoldListings(html);
+
+    // Filter to valid price range
+    const maxPrice = getMaxPrice(edition);
+    const validPrices = listings
+      .map((l) => l.price)
+      .filter((p) => p >= 1 && p <= maxPrice);
+
+    if (validPrices.length < 3) return null;
+
+    // Median to avoid outlier skew
+    validPrices.sort((a, b) => a - b);
+    const mid = Math.floor(validPrices.length / 2);
+    const median =
+      validPrices.length % 2 === 0
+        ? (validPrices[mid - 1] + validPrices[mid]) / 2
+        : validPrices[mid];
+
+    return parseFloat(median.toFixed(2));
+  } catch {
+    return null;
   }
-
-  const html = await res.text();
-  return parseSoldListings(html);
-}
-
-export function computePackPricing(
-  listings: EbaySoldListing[],
-  searchUrl: string
-): PackPricing | null {
-  if (listings.length === 0) return null;
-
-  const prices = listings.map((l) => l.price);
-  const sum = prices.reduce((a, b) => a + b, 0);
-
-  return {
-    averagePrice: Math.round((sum / prices.length) * 100) / 100,
-    lowPrice: Math.min(...prices),
-    highPrice: Math.max(...prices),
-    recentSales: listings.slice(0, 10),
-    searchUrl,
-  };
-}
-
-export function getEbaySearchUrl(setName: string, edition?: Edition | null): string {
-  return buildSearchUrl(setName, edition);
 }
 
 // Card-specific eBay sold listing functions

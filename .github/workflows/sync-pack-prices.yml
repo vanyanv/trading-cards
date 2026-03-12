@@ -1,0 +1,45 @@
+name: Sync Pack Prices
+
+on:
+  schedule:
+    # Daily at 6 AM UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      update_images:
+        description: 'Also update pack images from TCGPlayer'
+        required: false
+        default: 'false'
+        type: boolean
+      force_refresh:
+        description: 'Force refresh all prices (even if valid price exists)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Sync pack prices
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          ARGS=""
+          if [ "${{ inputs.update_images }}" = "true" ]; then
+            ARGS="$ARGS --images"
+          fi
+          if [ "${{ inputs.force_refresh }}" = "true" ]; then
+            ARGS="$ARGS --force"
+          fi
+          npx tsx scripts/sync-pack-prices.ts $ARGS

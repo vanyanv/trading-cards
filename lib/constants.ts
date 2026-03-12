@@ -319,3 +319,33 @@ export const TCGP_CARDS_PER_PACK = 5;
 export const STARTING_BALANCE_USD = 10.0;
 export const DEFAULT_PACK_PRICE_USD = 4.49;
 export const SELL_RATE = 0.6;
+
+// --- Shared pricing utilities ---
+
+// Fallback estimates for cards without API pricing
+export const RARITY_ESTIMATE_PRICES: Record<string, number> = {
+  [Rarity.Common]: 0.10,
+  [Rarity.Uncommon]: 0.25,
+  [Rarity.Rare]: 1.50,
+  [Rarity.DoubleRare]: 5.0,
+  [Rarity.IllustrationRare]: 8.0,
+  [Rarity.UltraRare]: 15.0,
+  [Rarity.SpecialIllustrationRare]: 30.0,
+  [Rarity.HyperRare]: 60.0,
+};
+
+// Era-based real-world pack pricing (USD)
+export function getEraFallbackPrice(setId: string): number {
+  if (setId.startsWith('sv') || setId.startsWith('swsh')) return 4.49;
+  if (setId.startsWith('sm')) return 5.0;
+  if (setId.startsWith('xy') || setId.startsWith('g1')) return 10.0;
+  if (setId.startsWith('bw')) return 20.0;
+  if (setId.startsWith('hgss') || setId.startsWith('col')) return 30.0;
+  if (setId.startsWith('pl')) return 35.0;
+  if (setId.startsWith('dp')) return 30.0;
+  if (setId.startsWith('ex') || setId.startsWith('ecard')) return 80.0;
+  if (setId.startsWith('neo')) return 150.0;
+  if (setId.startsWith('gym')) return 200.0;
+  if (setId.startsWith('base')) return 250.0;
+  return 4.49;
+}

@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import {
-  scrapeEbaySoldListings,
-  computePackPricing,
-  getEbaySearchUrl,
-} from '@/lib/ebay-scraper';
+  getProductDetails,
+  findPackProduct,
+  getProductImageUrl,
+  getTcgplayerProductUrl,
+} from '@/lib/tcgplayer-api';
 import type { PackPricing } from '@/types';
 
 // In-memory cache with 6-hour TTL
@@ -27,7 +28,7 @@ export async function GET(
     const supabase = await createClient();
     const { data: pack } = await supabase
       .from('packs')
-      .select('set_name, edition')
+      .select('set_name, edition, tcgplayer_product_id')
       .eq('id', packId)
       .single();
 
@@ -35,9 +36,44 @@ export async function GET(
       return NextResponse.json({ error: 'Pack not found' }, { status: 404 });
     }
 
-    const listings = await scrapeEbaySoldListings(pack.set_name, pack.edition);
-    const searchUrl = getEbaySearchUrl(pack.set_name, pack.edition);
-    const pricing = computePackPricing(listings, searchUrl);
+    let pricing: PackPricing | null = null;
+
+    if (pack.tcgplayer_product_id) {
+      // Direct lookup by cached product ID
+      const details = await getProductDetails(pack.tcgplayer_product_id);
+      if (details) {
+        pricing = {
+          marketPrice: details.marketPrice,
+          lowestPrice: details.lowestPrice,
+          medianPrice: details.medianPrice,
+          lowestPriceWithShipping: details.lowestPriceWithShipping,
+          tcgplayerUrl: getTcgplayerProductUrl(details.productUrlName, details.productId),
+          imageUrl: getProductImageUrl(details.productId),
+        };
+      }
+    } else {
+      // Try to find the product on TCGPlayer
+      const product = await findPackProduct(pack.set_name, pack.edition);
+      if (product) {
+        const details = await getProductDetails(product.productId);
+        if (details) {
+          pricing = {
+            marketPrice: details.marketPrice,
+            lowestPrice: details.lowestPrice,
+            medianPrice: details.medianPrice,
+            lowestPriceWithShipping: details.lowestPriceWithShipping,
+            tcgplayerUrl: getTcgplayerProductUrl(details.productUrlName, details.productId),
+            imageUrl: getProductImageUrl(details.productId),
+          };
+
+          // Cache the product ID for future lookups
+          await supabase
+            .from('packs')
+            .update({ tcgplayer_product_id: product.productId })
+            .eq('id', packId);
+        }
+      }
+    }
 
     cache.set(packId, { data: pricing, timestamp: Date.now() });
 

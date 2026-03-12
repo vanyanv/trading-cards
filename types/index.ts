@@ -57,6 +57,9 @@ export interface Pack {
   edition?: Edition | null;
   available: boolean;
   open_count: number;
+  tcgplayer_product_id?: number | null;
+  price_source?: 'tcgplayer' | 'ebay' | 'estimate' | null;
+  price_updated_at?: string | null;
   created_at: string;
 }
 
@@ -165,11 +168,28 @@ export interface EbaySoldListing {
 }
 
 export interface PackPricing {
-  averagePrice: number;
-  lowPrice: number;
-  highPrice: number;
-  recentSales: EbaySoldListing[];
-  searchUrl: string;
+  marketPrice: number | null;
+  lowestPrice: number | null;
+  medianPrice: number | null;
+  lowestPriceWithShipping: number | null;
+  tcgplayerUrl: string | null;
+  imageUrl: string | null;
+}
+
+export interface TCGPlayerProductDetails {
+  productId: number;
+  productName: string;
+  marketPrice: number | null;
+  lowestPrice: number | null;
+  medianPrice: number | null;
+  lowestPriceWithShipping: number | null;
+  imageCount: number;
+  setName: string;
+  setUrlName: string;
+  productUrlName: string;
+  productTypeName: string;
+  activeListings: number;
+  sellers: number;
 }
 
 export interface CardPricePoint {

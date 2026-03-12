@@ -131,6 +131,83 @@ export async function fetchTCGPCard(cardId: string, retries = 3): Promise<TCGPCa
   throw new Error(`Failed to fetch TCGP card ${cardId} after ${retries} retries`);
 }
 
+// --- Booster set discovery ---
+
+// Series that contain purchasable booster expansion sets
+const BOOSTER_SERIES_IDS = [
+  'base', 'gym', 'neo', 'ecard',
+  'ex', 'dp', 'pl', 'hgss',
+  'bw', 'xy', 'sm', 'swsh', 'sv',
+];
+
+// Standalone booster sets that may not appear under their parent series
+// These are checked against discovered sets to avoid duplicates
+const STANDALONE_BOOSTER_SET_IDS = ['g1', 'cel25', 'col1'];
+
+// Patterns that indicate non-booster sets within a series
+const NON_BOOSTER_PATTERNS = [
+  /p$/,       // promo sets (swshp, smp, xyp, etc.)
+  /^pop/,     // POP series
+  /^mcd/,     // McDonald's promos
+  /^tk/,      // Trainer kits
+  /^si$/,     // Southern Islands
+];
+
+// Sets to always exclude (pass pattern filter but aren't purchasable booster packs)
+const BLOCKLIST_SET_IDS = new Set<string>([
+  // Add edge cases here as discovered
+]);
+
+function isBoosterSet(setId: string): boolean {
+  if (BLOCKLIST_SET_IDS.has(setId)) return false;
+  if (NON_BOOSTER_PATTERNS.some((p) => p.test(setId))) return false;
+  return true;
+}
+
+/**
+ * Dynamically discover all booster expansion set IDs from TCGdex.
+ * Uses series enumeration + pattern filtering instead of a hardcoded list.
+ */
+export async function fetchBoosterSetIds(): Promise<string[]> {
+  // Step 1: Get all series (returns SerieResume[] with id/name only)
+  const allSeries = await tcgdex.serie.list();
+
+  // Step 2: Filter to known booster series
+  const boosterSeries = allSeries.filter((s) =>
+    BOOSTER_SERIES_IDS.includes(s.id)
+  );
+
+  console.log(`  Found ${allSeries.length} series, ${boosterSeries.length} are booster series`);
+
+  // Step 3: For each series, fetch full detail to get its sets
+  const discoveredSetIds = new Set<string>();
+
+  for (const serie of boosterSeries) {
+    const detail = await tcgdex.serie.get(serie.id);
+    if (!detail) {
+      console.warn(`  Warning: Could not fetch series detail for ${serie.id}`);
+      continue;
+    }
+
+    for (const set of detail.sets) {
+      if (isBoosterSet(set.id)) {
+        discoveredSetIds.add(set.id);
+      }
+    }
+  }
+
+  // Step 4: Add standalone booster sets (only if not already discovered)
+  for (const setId of STANDALONE_BOOSTER_SET_IDS) {
+    if (!discoveredSetIds.has(setId)) {
+      discoveredSetIds.add(setId);
+    }
+  }
+
+  const result = Array.from(discoveredSetIds);
+  console.log(`  Discovered ${result.length} booster sets`);
+  return result;
+}
+
 // --- Pricing helpers ---
 
 export async function fetchCardPricing(cardId: string): Promise<TCGdexPricing | null> {

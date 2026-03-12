@@ -1,14 +1,25 @@
 /**
  * Sync cards from TCGdex API into Supabase.
  *
- * Usage: npx tsx --env-file=.env.local scripts/sync-cards.ts
+ * Usage:
+ *   npx tsx --env-file=.env.local scripts/sync-cards.ts
+ *   npx tsx --env-file=.env.local scripts/sync-cards.ts --set sv09
  *
- * Fetches cards from specified sets and upserts them into the cards table.
- * Also creates pack entries for each set.
+ * Auto-discovers booster expansion sets from TCGdex and syncs cards,
+ * prices, and pack entries. Prints a summary report at the end.
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { fetchCard, fetchCardsBySet, fetchSets, type TCGCard, type TCGdexPricing } from '../lib/pokemon-tcg-api';
+import {
+  fetchBoosterSetIds,
+  fetchCard,
+  fetchCardsBySet,
+  fetchSets,
+  type TCGCard,
+  type TCGdexPricing,
+} from '../lib/pokemon-tcg-api';
+import { getEraFallbackPrice, RARITY_ESTIMATE_PRICES } from '../lib/constants';
+import { FIRST_EDITION_SET_IDS, SHADOWLESS_SET_IDS } from '../lib/constants';
 import { Rarity, type Edition } from '../types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -18,140 +29,98 @@ const supabaseKey =
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// All purchasable booster sets (Base Set through present)
-const TARGET_SET_IDS = [
-  // Base / Classic (1999–2002)
-  'base1',   // Base Set
-  'base2',   // Jungle
-  'base3',   // Fossil
-  'base4',   // Base Set 2
-  'base5',   // Team Rocket
-  'gym1',    // Gym Heroes
-  'gym2',    // Gym Challenge
-  'neo1',    // Neo Genesis
-  'neo2',    // Neo Discovery
-  'neo3',    // Neo Revelation
-  'neo4',    // Neo Destiny
-  // e-Card (2002–2003)
-  'ecard1',  // Expedition Base Set
-  'ecard2',  // Aquapolis
-  'ecard3',  // Skyridge
-  // EX era (2003–2007)
-  'ex1',     // Ruby & Sapphire
-  'ex2',     // Sandstorm
-  'ex3',     // Dragon
-  'ex4',     // Team Magma vs Team Aqua
-  'ex5',     // Hidden Legends
-  'ex6',     // FireRed & LeafGreen
-  'ex7',     // Team Rocket Returns
-  'ex8',     // Deoxys
-  'ex9',     // Emerald
-  'ex10',    // Unseen Forces
-  'ex11',    // Delta Species
-  'ex12',    // Legend Maker
-  'ex13',    // Holon Phantoms
-  'ex14',    // Crystal Guardians
-  'ex15',    // Dragon Frontiers
-  'ex16',    // Power Keepers
-  // Diamond & Pearl (2007–2009)
-  'dp1',     // Diamond & Pearl
-  'dp2',     // Mysterious Treasures
-  'dp3',     // Secret Wonders
-  'dp4',     // Great Encounters
-  'dp5',     // Majestic Dawn
-  'dp6',     // Legends Awakened
-  'dp7',     // Stormfront
-  // Platinum (2009)
-  'pl1',     // Platinum
-  'pl2',     // Rising Rivals
-  'pl3',     // Supreme Victors
-  'pl4',     // Arceus
-  // HeartGold SoulSilver (2010–2011)
-  'hgss1',   // HeartGold SoulSilver
-  'hgss2',   // Unleashed
-  'hgss3',   // Undaunted
-  'hgss4',   // Triumphant
-  'col1',    // Call of Legends
-  // Black & White (2011–2013)
-  'bw1',     // Black & White
-  'bw2',     // Emerging Powers
-  'bw3',     // Noble Victories
-  'bw4',     // Next Destinies
-  'bw5',     // Dark Explorers
-  'bw6',     // Dragons Exalted
-  'bw7',     // Boundaries Crossed
-  'bw8',     // Plasma Storm
-  'bw9',     // Plasma Freeze
-  'bw10',    // Plasma Blast
-  'bw11',    // Legendary Treasures
-  // XY (2014–2016)
-  'xy1',     // XY
-  'xy2',     // Flashfire
-  'xy3',     // Furious Fists
-  'xy4',     // Phantom Forces
-  'xy5',     // Primal Clash
-  'xy6',     // Roaring Skies
-  'xy7',     // Ancient Origins
-  'xy8',     // BREAKthrough
-  'xy9',     // BREAKpoint
-  'g1',      // Generations
-  'xy10',    // Fates Collide
-  'xy11',    // Steam Siege
-  'xy12',    // Evolutions
-  // Sun & Moon (2017–2019)
-  'sm1',     // Sun & Moon
-  'sm2',     // Guardians Rising
-  'sm3',     // Burning Shadows
-  'sm3.5',   // Shining Legends
-  'sm4',     // Crimson Invasion
-  'sm5',     // Ultra Prism
-  'sm6',     // Forbidden Light
-  'sm7',     // Celestial Storm
-  'sm7.5',   // Dragon Majesty
-  'sm8',     // Lost Thunder
-  'sm9',     // Team Up
-  'sm10',    // Unbroken Bonds
-  'sm11',    // Unified Minds
-  'sm115',   // Hidden Fates
-  'sm12',    // Cosmic Eclipse
-  // Sword & Shield (2020–2023)
-  'swsh1',   // Sword & Shield
-  'swsh2',   // Rebel Clash
-  'swsh3',   // Darkness Ablaze
-  'swsh3.5', // Champion's Path
-  'swsh4',   // Vivid Voltage
-  'swsh4.5', // Shining Fates
-  'swsh5',   // Battle Styles
-  'swsh6',   // Chilling Reign
-  'swsh7',   // Evolving Skies
-  'cel25',   // Celebrations
-  'swsh8',   // Fusion Strike
-  'swsh9',   // Brilliant Stars
-  'swsh10',  // Astral Radiance
-  'swsh10.5', // Pokémon GO
-  'swsh11',  // Lost Origin
-  'swsh12',  // Silver Tempest
-  'swsh12.5', // Crown Zenith
-  // Scarlet & Violet (2023–present)
-  'sv01',    // Scarlet & Violet
-  'sv02',    // Paldea Evolved
-  'sv03',    // Obsidian Flames
-  'sv03.5',  // 151
-  'sv04',    // Paradox Rift
-  'sv04.5',  // Paldean Fates
-  'sv05',    // Temporal Forces
-  'sv06',    // Twilight Masquerade
-  'sv06.5',  // Shrouded Fable
-  'sv07',    // Stellar Crown
-  'sv08',    // Surging Sparks
-  'sv08.5',  // Prismatic Evolutions
-  'sv09',    // Journey Together
-  'sv10',    // Destined Rivals
-  'sv10.5b', // Black Bolt
-  'sv10.5w', // White Flare
-];
+// --- CLI argument parsing ---
 
-// Map TCGdex rarity strings to our enum
+function parseArgs(): { setId?: string } {
+  const args = process.argv.slice(2);
+  const setIdx = args.indexOf('--set');
+  if (setIdx !== -1 && args[setIdx + 1]) {
+    return { setId: args[setIdx + 1] };
+  }
+  return {};
+}
+
+// --- Sync report ---
+
+interface SetStats {
+  setName: string;
+  cardCount: number;
+  apiPriced: number;
+  estimateCount: number;
+  noPriceCount: number;
+}
+
+interface SyncReport {
+  startTime: Date;
+  setsDiscovered: number;
+  newSets: string[];
+  cardsInserted: number;
+  cardsUpdated: number;
+  cardErrors: number;
+  cardsWithApiPrice: number;
+  cardsWithEstimatePrice: number;
+  cardsWithNoPrice: number;
+  priceHistoryRecorded: number;
+  setStats: Map<string, SetStats>;
+  failedSets: string[];
+}
+
+function createReport(): SyncReport {
+  return {
+    startTime: new Date(),
+    setsDiscovered: 0,
+    newSets: [],
+    cardsInserted: 0,
+    cardsUpdated: 0,
+    cardErrors: 0,
+    cardsWithApiPrice: 0,
+    cardsWithEstimatePrice: 0,
+    cardsWithNoPrice: 0,
+    priceHistoryRecorded: 0,
+    setStats: new Map(),
+    failedSets: [],
+  };
+}
+
+function printReport(report: SyncReport) {
+  const duration = Date.now() - report.startTime.getTime();
+  const minutes = Math.floor(duration / 60000);
+  const seconds = Math.floor((duration % 60000) / 1000);
+
+  const totalCards = report.cardsWithApiPrice + report.cardsWithEstimatePrice + report.cardsWithNoPrice;
+  const apiPct = totalCards > 0 ? ((report.cardsWithApiPrice / totalCards) * 100).toFixed(1) : '0';
+  const estPct = totalCards > 0 ? ((report.cardsWithEstimatePrice / totalCards) * 100).toFixed(1) : '0';
+  const noPct = totalCards > 0 ? ((report.cardsWithNoPrice / totalCards) * 100).toFixed(1) : '0';
+
+  console.log('\n=== SYNC SUMMARY ===');
+  console.log(`Duration: ${minutes}m ${seconds}s`);
+  console.log(`Sets discovered: ${report.setsDiscovered}${report.newSets.length > 0 ? ` (${report.newSets.length} new: ${report.newSets.join(', ')})` : ''}`);
+  console.log(`Cards: ${totalCards.toLocaleString()} (${report.cardsInserted.toLocaleString()} inserted/updated, ${report.cardErrors} errors)`);
+  console.log(`Pricing coverage:`);
+  console.log(`  API price:      ${report.cardsWithApiPrice.toLocaleString()} (${apiPct}%)`);
+  console.log(`  Estimate:       ${report.cardsWithEstimatePrice.toLocaleString()} (${estPct}%)`);
+  console.log(`  No price:       ${report.cardsWithNoPrice.toLocaleString()} (${noPct}%)`);
+  console.log(`Price history:    ${report.priceHistoryRecorded.toLocaleString()} entries recorded`);
+
+  // Sets needing attention (>50% estimate pricing)
+  const attentionSets: string[] = [];
+  for (const [setId, stats] of report.setStats) {
+    if (stats.cardCount > 0 && stats.estimateCount / stats.cardCount > 0.5) {
+      const pct = ((stats.estimateCount / stats.cardCount) * 100).toFixed(1);
+      attentionSets.push(`  ${setId} (${stats.setName}): ${stats.estimateCount}/${stats.cardCount} estimate (${pct}%)`);
+    }
+  }
+
+  if (attentionSets.length > 0) {
+    console.log(`\nSets needing attention (>50% estimate pricing):`);
+    attentionSets.forEach((s) => console.log(s));
+  }
+
+  console.log(`\nFailed sets: ${report.failedSets.length > 0 ? report.failedSets.join(', ') : 'none'}`);
+}
+
+// --- Rarity mapping ---
+
 function mapRarity(apiRarity: string | undefined): Rarity {
   if (!apiRarity || apiRarity === 'None') return Rarity.Common;
 
@@ -202,33 +171,63 @@ function mapRarity(apiRarity: string | undefined): Rarity {
   return mapped;
 }
 
-// Extract the best available price and compute a trend direction
-function extractPricing(pricing: TCGdexPricing | undefined): {
+// --- Pricing extraction (improved fallback chain) ---
+
+const TCGPLAYER_VARIANTS = ['holofoil', 'normal', 'reverse-holofoil', '1stEditionHolofoil', '1stEditionNormal'] as const;
+const TCGPLAYER_PRICE_FIELDS = ['marketPrice', 'midPrice', 'lowPrice'] as const;
+const CARDMARKET_FIELDS = ['avg', 'trend', 'avg1', 'avg7', 'avg30', 'low'] as const;
+const CARDMARKET_HOLO_FIELDS = ['avg-holo', 'trend-holo', 'avg1-holo', 'avg7-holo', 'avg30-holo', 'low-holo'] as const;
+
+interface PricingResult {
   price: number | null;
   priceTrend: 'up' | 'down' | 'stable' | null;
   priceSource: 'tcgplayer' | 'cardmarket' | null;
-} {
-  if (!pricing) return { price: null, priceTrend: null, priceSource: null };
+  priceVariant: string | null;
+}
 
-  // Prefer TCGPlayer market price (USD), fall back to Cardmarket avg
+function extractPricing(pricing: TCGdexPricing | undefined, isHolo = false): PricingResult {
+  if (!pricing) return { price: null, priceTrend: null, priceSource: null, priceVariant: null };
+
   let price: number | null = null;
   let priceSource: 'tcgplayer' | 'cardmarket' | null = null;
+  let priceVariant: string | null = null;
 
+  // Try TCGPlayer: each variant × each price field
   if (pricing.tcgplayer) {
-    const tp = pricing.tcgplayer;
-    price =
-      tp.holofoil?.marketPrice ??
-      tp.normal?.marketPrice ??
-      tp['reverse-holofoil']?.marketPrice ??
-      tp['1stEditionHolofoil']?.marketPrice ??
-      tp['1stEditionNormal']?.marketPrice ??
-      null;
-    if (price != null) priceSource = 'tcgplayer';
+    const tp = pricing.tcgplayer as Record<string, Record<string, number | null> | undefined>;
+    outer:
+    for (const variant of TCGPLAYER_VARIANTS) {
+      const vp = tp[variant];
+      if (!vp) continue;
+      for (const field of TCGPLAYER_PRICE_FIELDS) {
+        const val = vp[field];
+        if (val != null && val > 0) {
+          price = val;
+          priceSource = 'tcgplayer';
+          priceVariant = variant;
+          break outer;
+        }
+      }
+    }
   }
 
+  // Fall back to Cardmarket
   if (price == null && pricing.cardmarket) {
-    price = pricing.cardmarket.avg ?? null;
-    if (price != null) priceSource = 'cardmarket';
+    const cm = pricing.cardmarket as Record<string, number | null | undefined>;
+    // For holo cards, try holo-specific fields first
+    const fieldsToTry = isHolo
+      ? [...CARDMARKET_HOLO_FIELDS, ...CARDMARKET_FIELDS]
+      : CARDMARKET_FIELDS;
+
+    for (const field of fieldsToTry) {
+      const val = cm[field];
+      if (val != null && val > 0) {
+        price = val;
+        priceSource = 'cardmarket';
+        priceVariant = 'normal';
+        break;
+      }
+    }
   }
 
   // Determine trend from cardmarket short-term vs long-term averages
@@ -243,55 +242,20 @@ function extractPricing(pricing: TCGdexPricing | undefined): {
     }
   }
 
-  return { price, priceTrend, priceSource };
+  return { price, priceTrend, priceSource, priceVariant };
 }
 
-// Sets that received 1st Edition print runs
-const FIRST_EDITION_SET_IDS = [
-  'base1', 'base2', 'base3', 'base5',
-  'gym1', 'gym2',
-  'neo1', 'neo2', 'neo3', 'neo4',
-];
+// --- Edition config ---
 
-// Only Base Set had the Shadowless variant
-const SHADOWLESS_SET_IDS = ['base1'];
-
-// Edition price multipliers
 const EDITION_PRICE_MULTIPLIERS: Record<Edition, number> = {
   '1st-edition': 5.0,
   'shadowless': 3.0,
   'unlimited': 1.0,
 };
 
-// Era-based real-world pack pricing (USD)
-function getPackPriceUsd(setId: string): number {
-  if (setId.startsWith('sv') || setId.startsWith('swsh')) return 4.49;
-  if (setId.startsWith('sm')) return 5.0;
-  if (setId.startsWith('xy') || setId.startsWith('g1')) return 10.0;
-  if (setId.startsWith('bw')) return 20.0;
-  if (setId.startsWith('hgss') || setId.startsWith('col')) return 30.0;
-  if (setId.startsWith('pl')) return 35.0;
-  if (setId.startsWith('dp')) return 30.0;
-  if (setId.startsWith('ex') || setId.startsWith('ecard')) return 80.0;
-  if (setId.startsWith('neo')) return 150.0;
-  if (setId.startsWith('gym')) return 200.0;
-  if (setId.startsWith('base')) return 250.0;
-  return 4.49; // default for unknown sets
-}
+// --- Set sync ---
 
-// Fallback estimates for cards without API pricing
-const RARITY_ESTIMATE_PRICES: Record<string, number> = {
-  [Rarity.Common]: 0.10,
-  [Rarity.Uncommon]: 0.25,
-  [Rarity.Rare]: 1.50,
-  [Rarity.DoubleRare]: 5.0,
-  [Rarity.IllustrationRare]: 8.0,
-  [Rarity.UltraRare]: 15.0,
-  [Rarity.SpecialIllustrationRare]: 30.0,
-  [Rarity.HyperRare]: 60.0,
-};
-
-async function syncSet(setId: string) {
+async function syncSet(setId: string, report: SyncReport) {
   console.log(`\nSyncing set: ${setId}...`);
 
   const cards = await fetchCardsBySet(setId);
@@ -299,19 +263,28 @@ async function syncSet(setId: string) {
 
   let inserted = 0;
   let errors = 0;
+  let apiPriced = 0;
+  let noPriced = 0;
+  let historyRecorded = 0;
+  const today = new Date().toISOString().split('T')[0];
 
   for (const card of cards) {
     const rarity = mapRarity(card.rarity);
+    const isHolo = rarity !== Rarity.Common && rarity !== Rarity.Uncommon;
 
     // Build subtypes from stage + suffix (e.g. ["Stage 1", "V"])
     const subtypes: string[] = [];
     if (card.stage) subtypes.push(card.stage);
     if (card.suffix) subtypes.push(card.suffix);
 
-    // Extract best available price from TCGdex pricing
-    const { price, priceTrend, priceSource } = extractPricing(card.pricing);
+    // Extract best available price from TCGdex pricing (improved fallback chain)
+    const { price, priceTrend, priceSource, priceVariant } = extractPricing(card.pricing, isHolo);
 
-    const { error } = await supabase.from('cards').upsert(
+    if (price != null) apiPriced++;
+    else noPriced++;
+
+    // Upsert card and get back the DB id for price history
+    const { data: upsertData, error } = await supabase.from('cards').upsert(
       {
         name: card.name,
         image_url: card.image ? `${card.image}/low.png` : '',
@@ -329,22 +302,48 @@ async function syncSet(setId: string) {
         price_source: priceSource,
       },
       { onConflict: 'tcg_id' }
-    );
+    ).select('id').single();
 
     if (error) {
       console.error(`  Error inserting ${card.name}:`, error.message);
       errors++;
-    } else {
-      inserted++;
+      continue;
+    }
+
+    inserted++;
+
+    // Record price history for cards with API pricing
+    if (price != null && priceSource && upsertData?.id) {
+      const { error: histError } = await supabase
+        .from('card_price_history')
+        .upsert(
+          {
+            card_id: upsertData.id,
+            price,
+            source: priceSource,
+            variant: priceVariant || 'normal',
+            recorded_at: today,
+          },
+          { onConflict: 'card_id,source,variant,recorded_at' }
+        );
+
+      if (!histError) historyRecorded++;
     }
   }
 
-  console.log(`  Inserted/updated: ${inserted}, Errors: ${errors}`);
+  console.log(`  Inserted/updated: ${inserted}, Errors: ${errors}, API priced: ${apiPriced}`);
+
+  // Update report stats
+  report.cardsInserted += inserted;
+  report.cardErrors += errors;
+  report.cardsWithApiPrice += apiPriced;
+  report.cardsWithNoPrice += noPriced;
+  report.priceHistoryRecorded += historyRecorded;
 
   // Create pack entry/entries for this set
   if (cards.length > 0) {
     const set = cards[0].set;
-    const basePrice = getPackPriceUsd(set.id);
+    const basePrice = getEraFallbackPrice(set.id);
     const imageUrl = set.logo ? `${set.logo}.png` : '';
 
     if (FIRST_EDITION_SET_IDS.includes(set.id)) {
@@ -358,7 +357,7 @@ async function syncSet(setId: string) {
         const editionLabel =
           edition === '1st-edition' ? '1st Edition' :
           edition === 'shadowless' ? 'Shadowless' : 'Unlimited';
-        const price = parseFloat((basePrice * EDITION_PRICE_MULTIPLIERS[edition]).toFixed(2));
+        const packPrice = parseFloat((basePrice * EDITION_PRICE_MULTIPLIERS[edition]).toFixed(2));
 
         // Use select-then-upsert since composite unique index uses partial indexes
         const { data: existing } = await supabase
@@ -372,7 +371,7 @@ async function syncSet(setId: string) {
         const packData = {
           name: `${set.name} — ${editionLabel}`,
           description: `${editionLabel} booster pack from the ${set.name} set`,
-          price_usd: price,
+          price_usd: packPrice,
           image_url: imageUrl,
           cards_per_pack: 10,
           set_id: set.id,
@@ -381,22 +380,22 @@ async function syncSet(setId: string) {
           available: true,
         };
 
-        let error;
+        let packError;
         if (existing) {
-          ({ error } = await supabase.from('packs').update(packData).eq('id', existing.id));
+          ({ error: packError } = await supabase.from('packs').update(packData).eq('id', existing.id));
         } else {
-          ({ error } = await supabase.from('packs').insert(packData));
+          ({ error: packError } = await supabase.from('packs').insert(packData));
         }
 
-        if (error) {
-          console.error(`  Error creating ${editionLabel} pack for ${set.name}:`, error.message);
+        if (packError) {
+          console.error(`  Error creating ${editionLabel} pack for ${set.name}:`, packError.message);
         } else {
-          console.log(`  Pack created: ${set.name} — ${editionLabel} ($${price})`);
+          console.log(`  Pack created: ${set.name} — ${editionLabel} ($${packPrice})`);
         }
       }
     } else {
       // Modern set: single pack, no edition
-      const { error } = await supabase.from('packs').upsert(
+      const { error: packError } = await supabase.from('packs').upsert(
         {
           name: set.name,
           description: `Booster pack from the ${set.name} set`,
@@ -410,37 +409,68 @@ async function syncSet(setId: string) {
         { onConflict: 'set_id' }
       );
 
-      if (error) {
-        console.error(`  Error creating pack for ${set.name}:`, error.message);
+      if (packError) {
+        console.error(`  Error creating pack for ${set.name}:`, packError.message);
       } else {
         console.log(`  Pack created for ${set.name}`);
       }
     }
+
+    // Record set stats for the report
+    report.setStats.set(setId, {
+      setName: cards[0].set.name,
+      cardCount: cards.length,
+      apiPriced,
+      estimateCount: 0, // Will be updated after fallback pass
+      noPriceCount: noPriced,
+    });
   }
 }
 
+// --- Main ---
+
 async function main() {
+  const { setId: targetSetId } = parseArgs();
+  const report = createReport();
+
   console.log('Pokemon TCG Card Sync (via TCGdex)');
   console.log('===================================');
 
-  // Show available sets
-  const sets = await fetchSets();
-  console.log(`\nAvailable sets: ${sets.length}`);
-  console.log(
-    'Target sets:',
-    TARGET_SET_IDS.map(
-      (id) => `${id} (${sets.find((s) => s.id === id)?.name || 'unknown'})`
-    ).join(', ')
-  );
+  // Determine which sets to sync
+  let targetSetIds: string[];
+
+  if (targetSetId) {
+    console.log(`\nSingle-set mode: syncing ${targetSetId}`);
+    targetSetIds = [targetSetId];
+  } else {
+    console.log('\nDiscovering booster sets...');
+    targetSetIds = await fetchBoosterSetIds();
+    report.setsDiscovered = targetSetIds.length;
+
+    // Check for new sets not yet in DB
+    const { data: existingPacks } = await supabase
+      .from('packs')
+      .select('set_id')
+      .is('booster_id', null);
+
+    if (existingPacks) {
+      const existingSetIds = new Set(existingPacks.map((p) => p.set_id));
+      report.newSets = targetSetIds.filter((id) => !existingSetIds.has(id));
+      if (report.newSets.length > 0) {
+        console.log(`  New sets found: ${report.newSets.join(', ')}`);
+      }
+    }
+  }
+
+  console.log(`\nSyncing ${targetSetIds.length} sets...`);
 
   const failedSets: string[] = [];
-  for (const setId of TARGET_SET_IDS) {
+  for (const setId of targetSetIds) {
     try {
-      await syncSet(setId);
+      await syncSet(setId, report);
     } catch (err) {
       console.error(`  FAILED to sync ${setId}:`, (err as Error).message);
       failedSets.push(setId);
-      // Wait a bit before continuing after a failure
       await new Promise((r) => setTimeout(r, 3000));
     }
   }
@@ -450,15 +480,20 @@ async function main() {
     for (const setId of failedSets) {
       try {
         await new Promise((r) => setTimeout(r, 2000));
-        await syncSet(setId);
+        await syncSet(setId, report);
+        // Remove from failed if retry succeeds
+        const idx = failedSets.indexOf(setId);
+        if (idx !== -1) failedSets.splice(idx, 1);
       } catch (err) {
         console.error(`  RETRY FAILED for ${setId}:`, (err as Error).message);
       }
     }
   }
+  report.failedSets = failedSets;
 
   // Fallback pass: assign estimate prices to cards missing API pricing
   console.log('\nApplying fallback prices for cards without API data...');
+  let totalEstimated = 0;
   for (const [rarity, estimatePrice] of Object.entries(RARITY_ESTIMATE_PRICES)) {
     const { count, error } = await supabase
       .from('cards')
@@ -473,9 +508,15 @@ async function main() {
     if (error) {
       console.error(`  Error updating ${rarity} fallback:`, error.message);
     } else {
-      console.log(`  ${rarity}: ${count ?? 0} cards set to $${estimatePrice.toFixed(2)}`);
+      const updated = count ?? 0;
+      totalEstimated += updated;
+      console.log(`  ${rarity}: ${updated} cards set to $${estimatePrice.toFixed(2)}`);
     }
   }
+
+  // Move "no price" cards to "estimate" in the report
+  report.cardsWithEstimatePrice = totalEstimated;
+  report.cardsWithNoPrice = Math.max(0, report.cardsWithNoPrice - totalEstimated);
 
   // Detailed pricing pass: write per-variant pricing to card_pricing_details
   console.log('\nSyncing detailed per-variant pricing...');
@@ -571,7 +612,7 @@ async function main() {
     console.log(`  Synced ${detailCount} pricing detail rows`);
   }
 
-  console.log('\nSync complete!');
+  printReport(report);
 }
 
 main().catch(console.error);
