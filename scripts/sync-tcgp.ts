@@ -15,6 +15,7 @@ import {
   type TCGPCardDetail,
 } from '../lib/pokemon-tcg-api';
 import { Rarity } from '../types';
+import { TCGP_RELEASE_DATES } from '../lib/constants';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey =
@@ -179,6 +180,7 @@ async function syncTCGPSet(setId: string) {
       set_name: setDetail.name,
       booster_id: booster.id,
       available: true,
+      release_date: setDetail.releaseDate || TCGP_RELEASE_DATES[setDetail.id] || null,
     };
 
     // Check if pack already exists
