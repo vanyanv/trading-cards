@@ -244,38 +244,51 @@ export type EraConfig = {
   hitSlotRates: RateEntry[];
 };
 
-// Scarlet & Violet — PokéBeach community-tracked (~10k+ pack dataset)
+// Scarlet & Violet — mid-to-late SV era averages (PokéBeach/TCGPlayer community data)
 const SV_HIT_RATES: RateEntry[] = [
   { rarity: Rarity.Rare, weight: 71.5 },
   { rarity: Rarity.DoubleRare, weight: 14.3 },
-  { rarity: Rarity.IllustrationRare, weight: 7.5 },
-  { rarity: Rarity.UltraRare, weight: 6.7 },
-  { rarity: Rarity.SpecialIllustrationRare, weight: 3.0 },
-  { rarity: Rarity.HyperRare, weight: 1.85 },
+  { rarity: Rarity.IllustrationRare, weight: 7.7 },
+  { rarity: Rarity.UltraRare, weight: 5.0 },
+  { rarity: Rarity.SpecialIllustrationRare, weight: 1.2 },  // ~1 in 83 packs
+  { rarity: Rarity.HyperRare, weight: 0.7 },                // ~1 in 143 packs
 ];
 
 // Sword & Shield — community-tracked (V/VMAX mapped to DoubleRare, etc.)
 const SWSH_HIT_RATES: RateEntry[] = [
   { rarity: Rarity.Rare, weight: 70.0 },
-  { rarity: Rarity.DoubleRare, weight: 17.0 },     // V + VMAX + VSTAR
-  { rarity: Rarity.UltraRare, weight: 6.5 },        // Full Art V, Amazing/Radiant
-  { rarity: Rarity.SpecialIllustrationRare, weight: 3.5 }, // Alt Art
-  { rarity: Rarity.HyperRare, weight: 3.0 },        // Secret/Gold/Rainbow
+  { rarity: Rarity.DoubleRare, weight: 16.0 },              // V + VMAX + VSTAR
+  { rarity: Rarity.UltraRare, weight: 5.5 },                // Full Art V, Amazing/Radiant
+  { rarity: Rarity.SpecialIllustrationRare, weight: 2.0 },  // Alt Art (~1 in 50)
+  { rarity: Rarity.HyperRare, weight: 1.4 },                // Secret/Gold/Rainbow (~1 in 71)
 ];
 
 // Sun & Moon — community-tracked (GX mapped to DoubleRare/UltraRare)
 const SM_HIT_RATES: RateEntry[] = [
-  { rarity: Rarity.Rare, weight: 70.0 },
-  { rarity: Rarity.DoubleRare, weight: 16.0 },      // GX
-  { rarity: Rarity.UltraRare, weight: 8.0 },        // Full Art GX
-  { rarity: Rarity.SpecialIllustrationRare, weight: 3.0 }, // Alt Art (Tag Team era)
-  { rarity: Rarity.HyperRare, weight: 3.0 },        // Rainbow/Secret
+  { rarity: Rarity.Rare, weight: 72.0 },
+  { rarity: Rarity.DoubleRare, weight: 14.0 },              // GX
+  { rarity: Rarity.UltraRare, weight: 7.0 },                // Full Art GX
+  { rarity: Rarity.SpecialIllustrationRare, weight: 2.5 },  // Alt Art (Tag Team era)
+  { rarity: Rarity.HyperRare, weight: 1.85 },               // Rainbow/Secret (~1 in 54)
+];
+
+// WotC era — Base Set through Neo (holo rares mapped to DoubleRare via sync)
+// Real odds: ~1 in 3 packs had a holo rare
+const WOTC_HIT_RATES: RateEntry[] = [
+  { rarity: Rarity.Rare, weight: 66.7 },       // Non-holo rare (~2 in 3 packs)
+  { rarity: Rarity.DoubleRare, weight: 33.3 },  // Holo rare (~1 in 3 packs)
 ];
 
 export const ERA_PULL_RATES: EraConfig[] = [
   { name: 'Scarlet & Violet', prefixes: ['sv'], hitSlotRates: SV_HIT_RATES },
   { name: 'Sword & Shield', prefixes: ['swsh'], hitSlotRates: SWSH_HIT_RATES },
   { name: 'Sun & Moon', prefixes: ['sm'], hitSlotRates: SM_HIT_RATES },
+  { name: 'XY', prefixes: ['xy'], hitSlotRates: SM_HIT_RATES },
+  { name: 'Black & White', prefixes: ['bw'], hitSlotRates: SM_HIT_RATES },
+  { name: 'HeartGold SoulSilver', prefixes: ['hgss'], hitSlotRates: WOTC_HIT_RATES },
+  { name: 'Diamond & Pearl', prefixes: ['dp', 'pl'], hitSlotRates: WOTC_HIT_RATES },
+  { name: 'EX', prefixes: ['ex'], hitSlotRates: WOTC_HIT_RATES },
+  { name: 'WotC', prefixes: ['base', 'gym', 'neo', 'ecard'], hitSlotRates: WOTC_HIT_RATES },
 ];
 
 /** Get the prior hit-slot rates for a set, falling back to SV rates for unverified eras. */
@@ -285,7 +298,7 @@ export function getPriorRatesForSet(setId: string): RateEntry[] {
       return era.hitSlotRates;
     }
   }
-  return SV_HIT_RATES; // fallback for XY, BW, HGSS, DP, Platinum, EX, Neo, WotC
+  return SV_HIT_RATES; // fallback for unrecognized sets
 }
 
 // Keep the default export for backward compatibility

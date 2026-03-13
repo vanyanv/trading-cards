@@ -124,8 +124,21 @@ function printReport(report: SyncReport) {
 
 // --- Rarity mapping ---
 
-function mapRarity(apiRarity: string | undefined): Rarity {
+function mapRarity(
+  apiRarity: string | undefined,
+  variants?: { holo?: boolean; normal?: boolean },
+): Rarity {
   if (!apiRarity || apiRarity === 'None') return Rarity.Common;
+
+  // Holo-only rares (WotC era chase cards like Charizard, Blastoise)
+  // These are "Rare" in the API but only exist as holos — map to DoubleRare
+  if (
+    (apiRarity === 'Rare' || apiRarity === 'Holo Rare' || apiRarity === 'Rare Holo') &&
+    variants?.holo === true &&
+    variants?.normal === false
+  ) {
+    return Rarity.DoubleRare;
+  }
 
   const mapping: Record<string, Rarity> = {
     Common: Rarity.Common,
@@ -136,7 +149,7 @@ function mapRarity(apiRarity: string | undefined): Rarity {
     'Ultra Rare': Rarity.UltraRare,
     'Special illustration rare': Rarity.SpecialIllustrationRare,
     'Hyper rare': Rarity.HyperRare,
-    // Holo rares
+    // Holo rares (non-exclusive holos — normal variant also exists)
     'Holo Rare': Rarity.Rare,
     'Rare Holo': Rarity.Rare,
     // V/VMAX/VSTAR era
@@ -204,7 +217,7 @@ async function syncSet(setId: string, report: SyncReport) {
   const today = new Date().toISOString().split('T')[0];
 
   for (const card of cards) {
-    const rarity = mapRarity(card.rarity);
+    const rarity = mapRarity(card.rarity, card.variants);
     const isHolo = rarity !== Rarity.Common && rarity !== Rarity.Uncommon;
 
     // Build subtypes from stage + suffix (e.g. ["Stage 1", "V"])
@@ -524,6 +537,7 @@ async function main() {
   const { data: allCards } = await supabase
     .from('cards')
     .select('id, tcg_id')
+    .in('set_id', targetSetIds)
     .not('price_source', 'eq', 'estimate')
     .not('price', 'is', null);
 
