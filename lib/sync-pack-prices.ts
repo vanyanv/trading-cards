@@ -7,7 +7,7 @@ import {
   getProductImageUrl,
   isVintagePack,
 } from './tcgplayer-api';
-import { scrapePackSoldPrice } from './ebay-scraper';
+import { searchSoldPackListings } from './ebay-api';
 import { SyncAuditLog, AuditEntry, computeFlags } from './sync-audit';
 import type { Edition } from '@/types';
 
@@ -207,7 +207,7 @@ export async function syncPackPrices(
       } else {
         // Try eBay as second fallback
         await new Promise((r) => setTimeout(r, 1500));
-        const ebayResult = await scrapePackSoldPrice(
+        const ebayResult = await searchSoldPackListings(
           pack.set_name,
           pack.edition as Edition | null
         );
@@ -292,7 +292,7 @@ export async function syncPackPrices(
     } else {
       // No TCGPlayer match — try eBay sold listings
       await new Promise((r) => setTimeout(r, 1500));
-      const ebayResult = await scrapePackSoldPrice(
+      const ebayResult = await searchSoldPackListings(
         pack.set_name,
         pack.edition as Edition | null
       );

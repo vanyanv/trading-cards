@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import {
-  scrapeCardSoldListings,
+  searchSoldCardListings,
   getCardEbaySearchUrl,
-} from '@/lib/ebay-scraper';
+} from '@/lib/ebay-api';
 import type { CardSoldListing } from '@/types';
 
 const cache = new Map<
@@ -38,7 +38,7 @@ export async function GET(
     // Extract card number from tcg_id (e.g., "sv8-123" -> "123")
     const cardNumber = card.tcg_id?.split('-').pop() || undefined;
 
-    const sales = await scrapeCardSoldListings(
+    const sales = await searchSoldCardListings(
       card.name,
       card.set_name,
       cardNumber
