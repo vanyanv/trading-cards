@@ -1,0 +1,45 @@
+name: Sync Card Prices
+
+on:
+  schedule:
+    # Daily at 7 AM UTC (1 hour after pack prices)
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      set_id:
+        description: 'Sync a single set (e.g. sv09)'
+        required: false
+        type: string
+      force_refresh:
+        description: 'Force refresh all sets (including estimate-only)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Sync card prices
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.set_id }}" ]; then
+            ARGS="$ARGS --set ${{ inputs.set_id }}"
+          fi
+          if [ "${{ inputs.force_refresh }}" = "true" ]; then
+            ARGS="$ARGS --force"
+          fi
+          npx tsx scripts/sync-card-prices.ts $ARGS
