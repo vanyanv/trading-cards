@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useTiltEffect } from '@/lib/hooks/useTiltEffect';
 import { useGyroscope } from '@/lib/hooks/useGyroscope';
-import { RARITY_CONFIG } from '@/lib/constants';
+import { RARITY_CONFIG, isShinyRarity } from '@/lib/constants';
 import { RarityBadge } from '@/components/RarityBadge';
 import { TypeParticles } from '@/components/TypeParticles';
+import { ShinyEffect } from '@/components/ShinyEffect';
 import type { PulledCard, Rarity } from '@/types';
 
 interface ImmersiveCardProps {
@@ -17,6 +18,7 @@ interface ImmersiveCardProps {
 
 export function ImmersiveCard({ card, onClose }: ImmersiveCardProps) {
   const config = RARITY_CONFIG[card.rarity as Rarity];
+  const isShiny = isShinyRarity(card.rarity as Rarity);
   const [hasMouseMoved, setHasMouseMoved] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const mouseTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -153,15 +155,27 @@ export function ImmersiveCard({ card, onClose }: ImmersiveCardProps) {
               />
             </div>
 
-            {/* Holographic overlay */}
+            {/* Holographic overlay — dimmed for shiny cards to make room for shiny conic overlay */}
             <div
               className="holo-overlay active pointer-events-none absolute inset-0 rounded-2xl"
               style={{
                 ...activeStyle,
-                opacity: 0.7,
+                opacity: isShiny ? 0.4 : 0.7,
                 transform: 'translateZ(10px)',
               }}
             />
+
+            {/* Shiny effect overlay */}
+            {isShiny && (
+              <div className="pointer-events-none absolute inset-0 rounded-2xl" style={{ transform: 'translateZ(12px)' }}>
+                <ShinyEffect
+                  rarity={card.rarity as Rarity}
+                  seed={card.id}
+                  holoAngle={(activeStyle as Record<string, string>)['--holo-angle']}
+                  asOverlay
+                />
+              </div>
+            )}
 
             {/* Specular highlight */}
             <div

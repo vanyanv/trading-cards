@@ -6,6 +6,7 @@ import { TrendingUp, TrendingDown, Minus, Sparkles, HandCoins } from 'lucide-rea
 import { cn } from '@/lib/cn';
 import { RARITY_CONFIG, EDITION_CONFIG } from '@/lib/constants';
 import { RarityBadge } from './RarityBadge';
+import { ShinyEffect } from './ShinyEffect';
 import type { Card, Rarity, Edition } from '@/types';
 
 function getCardNumber(tcgId: string): string {
@@ -79,54 +80,56 @@ export function CardDisplay({
           ? 'border-accent shadow-[0_0_12px_rgba(200,151,46,0.25)] -translate-y-0.5'
           : 'border-border hover:border-border'
       )}>
-        <div className="relative aspect-[2.5/3.5] overflow-hidden">
-          <Image
-            src={card.image_url}
-            alt={card.name}
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="h-full w-full object-contain"
-          />
-          {isReverseHolo && (
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-white/10" />
-          )}
-          {card.set_symbol_url && (
-            <div className="pointer-events-none absolute bottom-1.5 left-1.5 z-10">
-              <Image
-                src={card.set_symbol_url}
-                alt=""
-                width={16}
-                height={16}
-                className="opacity-60 drop-shadow-sm"
-              />
-            </div>
-          )}
-          {sellMode && (
-            <div className="absolute left-2 top-2 z-10">
-              <div className={cn(
-                'flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all duration-200',
-                selected
-                  ? 'border-accent bg-accent'
-                  : 'border-white/70 bg-black/30'
-              )}>
-                {selected && (
-                  <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
+        <ShinyEffect rarity={card.rarity as Rarity} seed={card.id}>
+          <div className="relative aspect-[2.5/3.5] overflow-hidden">
+            <Image
+              src={card.image_url}
+              alt={card.name}
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="h-full w-full object-contain"
+            />
+            {isReverseHolo && (
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-white/10" />
+            )}
+            {card.set_symbol_url && (
+              <div className="pointer-events-none absolute bottom-1.5 left-1.5 z-10">
+                <Image
+                  src={card.set_symbol_url}
+                  alt=""
+                  width={16}
+                  height={16}
+                  className="opacity-60 drop-shadow-sm"
+                />
               </div>
-            </div>
-          )}
-          {!sellMode && onQuickSell && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onQuickSell(); }}
-              className="absolute bottom-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-accent hover:scale-110 group-hover:opacity-100"
-              title={`Sell for $${sellPrice?.toFixed(2) ?? '—'}`}
-            >
-              <HandCoins className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
+            )}
+            {sellMode && (
+              <div className="absolute left-2 top-2 z-10">
+                <div className={cn(
+                  'flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all duration-200',
+                  selected
+                    ? 'border-accent bg-accent'
+                    : 'border-white/70 bg-black/30'
+                )}>
+                  {selected && (
+                    <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+            )}
+            {!sellMode && onQuickSell && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onQuickSell(); }}
+                className="absolute bottom-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-accent hover:scale-110 group-hover:opacity-100"
+                title={`Sell for $${sellPrice?.toFixed(2) ?? '—'}`}
+              >
+                <HandCoins className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </ShinyEffect>
 
         <div className="p-2.5">
           <p className="truncate text-sm font-medium">

@@ -2,7 +2,9 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
-import type { Card } from '@/types';
+import { isShinyRarity } from '@/lib/constants';
+import { ShinyEffect } from './ShinyEffect';
+import type { Card, Rarity } from '@/types';
 
 type FeaturedCard = Pick<Card, 'id' | 'name' | 'image_url' | 'image_url_hires' | 'rarity'>;
 
@@ -184,6 +186,10 @@ function CardSlot({
             {/* Holographic shimmer on front-most card */}
             {position.z >= 4 && (
               <div className="holo-overlay active absolute inset-0 rounded-xl" />
+            )}
+            {/* Shiny effect for shiny cards */}
+            {isShinyRarity(card.rarity as Rarity) && (
+              <ShinyEffect rarity={card.rarity as Rarity} seed={card.id} disableMouseTracking asOverlay />
             )}
           </motion.div>
         </motion.div>

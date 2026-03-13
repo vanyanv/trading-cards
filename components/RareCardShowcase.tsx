@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RARITY_CONFIG } from '@/lib/constants';
+import { RARITY_CONFIG, isShinyRarity } from '@/lib/constants';
 import { RarityBadge } from './RarityBadge';
+import { ShinyEffect } from './ShinyEffect';
 import type { Card, Rarity } from '@/types';
 
 type FeaturedCard = Pick<Card, 'id' | 'name' | 'image_url' | 'image_url_hires' | 'rarity'>;
@@ -58,6 +59,10 @@ export function RareCardShowcase({ cards }: { cards: FeaturedCard[] }) {
               />
               {/* Holographic overlay */}
               <div className="holo-overlay active absolute inset-0 rounded-xl" />
+              {/* Shiny effect for shiny cards */}
+              {isShinyRarity(card.rarity as Rarity) && (
+                <ShinyEffect rarity={card.rarity as Rarity} seed={card.id} asOverlay />
+              )}
             </div>
           </motion.div>
         </AnimatePresence>

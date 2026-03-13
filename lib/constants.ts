@@ -206,6 +206,11 @@ export const RARITY_CONFIG: Record<
   },
 };
 
+/** Check if a rarity is a shiny tier (OneShiny or TwoShiny). */
+export function isShinyRarity(rarity: Rarity): boolean {
+  return rarity === Rarity.OneShiny || rarity === Rarity.TwoShiny;
+}
+
 // --- Era-based hit slot pull rates ---
 // Each era uses our mapped Rarity enum (sync-cards.ts maps V→DoubleRare, etc.)
 // Only eras with verified community-tracked data get custom rates; others fall back to SV.

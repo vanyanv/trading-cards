@@ -10,8 +10,11 @@ import type { PulledCard, Rarity, Edition } from '@/types';
 import { EDITION_CONFIG } from '@/lib/constants';
 import type { ParticleType } from '@/lib/constants';
 import { ImmersiveCard } from './ImmersiveCard';
+import { ShinyEffect } from './ShinyEffect';
+import { isShinyRarity } from '@/lib/constants';
 import { TypeRevealEffect } from './TypeRevealEffect';
 import { RotateCcw, Eye } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 type Phase = 'sealed' | 'shaking' | 'opening' | 'card-reveal' | 'complete';
@@ -115,10 +118,14 @@ function HoloCard({
   children,
   isActive,
   className,
+  rarity,
+  seed,
 }: {
   children: React.ReactNode;
   isActive: boolean;
   className?: string;
+  rarity?: Rarity;
+  seed?: string;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
@@ -152,6 +159,9 @@ function HoloCard({
     });
   }, []);
 
+  // Extract holo angle for ShinyEffect (avoid duplicate mouse tracking)
+  const holoAngleValue = (holoStyle as Record<string, string>)['--holo-angle'];
+
   return (
     <div
       ref={cardRef}
@@ -173,6 +183,9 @@ function HoloCard({
         className={cn('holo-overlay', isActive && 'active')}
         style={holoStyle}
       />
+      {rarity && isShinyRarity(rarity) && (
+        <ShinyEffect rarity={rarity} seed={seed} holoAngle={holoAngleValue} asOverlay />
+      )}
     </div>
   );
 }
@@ -314,6 +327,7 @@ export function PackOpeningAnimation({
   const [showShower, setShowShower] = useState(false);
   const [immersiveCard, setImmersiveCard] = useState<PulledCard | null>(null);
   const [typeRevealing, setTypeRevealing] = useState(false);
+  const [revealedIndices, setRevealedIndices] = useState<Set<number>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -446,6 +460,7 @@ export function PackOpeningAnimation({
   const advanceToNextCard = useCallback(() => {
     const nextIndex = currentCardIndex + 1;
     if (nextIndex >= orderedCards.length) {
+      setRevealedIndices(new Set(orderedCards.map((_, i) => i)));
       setPhase('complete');
     } else {
       setCurrentCardIndex(nextIndex);
@@ -466,7 +481,13 @@ export function PackOpeningAnimation({
 
   const handleRevealAll = useCallback(() => {
     setPhase('complete');
-  }, []);
+    // Stagger-reveal cards one by one after backs cascade in
+    orderedCards.forEach((_, i) => {
+      addTimer(() => {
+        setRevealedIndices(prev => new Set([...prev, i]));
+      }, 600 + i * 150);
+    });
+  }, [orderedCards, addTimer]);
 
   const handleImmersiveClose = useCallback(() => {
     setImmersiveCard(null);
@@ -623,66 +644,69 @@ export function PackOpeningAnimation({
                 className="perspective-1000 cursor-pointer"
                 onClick={handleCardTap}
               >
-                <HoloCard isActive={cardFlipped && rarityOrder(currentCard.rarity) >= 2}>
-                  <div className="preserve-3d relative aspect-[2.5/3.5] w-64 sm:w-72">
+                <HoloCard isActive={cardFlipped && rarityOrder(currentCard.rarity) >= 2} rarity={currentCard.rarity as Rarity} seed={`${currentCard.id}-${currentCard.slot_number}`}>
+                  <div className="relative aspect-[2.5/3.5] w-64 sm:w-72">
+                    {/* ---- Front face ---- */}
                     <motion.div
-                      className="preserve-3d relative h-full w-full"
-                      initial={{ rotateY: 180 }}
-                      animate={cardFlipped ? { rotateY: 0 } : { rotateY: 180 }}
-                      transition={{
-                        duration: currentAnimConfig.flipDuration,
-                        ease: [0.16, 1, 0.3, 1],
-                      }}
+                      className={cn(
+                        'absolute inset-0 overflow-hidden rounded-xl border',
+                        cardFlipped ? currentConfig.borderClass : 'border-border'
+                      )}
+                      initial={false}
+                      animate={{ opacity: cardFlipped ? 1 : 0, scaleX: cardFlipped ? 1 : 0 }}
+                      transition={{ duration: currentAnimConfig.flipDuration * 0.5, delay: cardFlipped ? currentAnimConfig.flipDuration * 0.5 : 0, ease: [0.16, 1, 0.3, 1] }}
                     >
-                      {/* ---- Front face ---- */}
-                      <div
-                        className={cn(
-                          'backface-hidden absolute inset-0 overflow-hidden rounded-xl border',
-                          cardFlipped ? currentConfig.borderClass : 'border-border'
-                        )}
-                      >
-                        <img
-                          src={currentCard.image_url_hires || currentCard.image_url}
-                          alt={currentCard.name}
-                          className="h-full w-full object-contain"
+                      <img
+                        src={currentCard.image_url_hires || currentCard.image_url}
+                        alt={currentCard.name}
+                        className="h-full w-full object-contain"
+                      />
+                      {currentCard.is_reverse_holo && (
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-white/10" />
+                      )}
+                      {/* Reveal flash */}
+                      {cardFlipped && (
+                        <motion.div
+                          className="pointer-events-none absolute inset-0 z-20 rounded-xl"
+                          style={{
+                            background:
+                              currentAnimConfig.tier === 'common'
+                                ? 'radial-gradient(circle, rgba(200,151,46,0.15) 0%, rgba(255,255,255,0.3) 60%)'
+                                : `radial-gradient(circle, ${currentConfig.color}30 0%, ${currentConfig.color}10 40%, transparent 70%)`,
+                          }}
+                          initial={{ opacity: 0.8 }}
+                          animate={{ opacity: 0 }}
+                          transition={{ duration: 0.6, delay: 0.1 }}
                         />
-                        {currentCard.is_reverse_holo && (
-                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-white/10" />
-                        )}
-                        {/* Reveal flash */}
-                        {cardFlipped && (
-                          <motion.div
-                            className="pointer-events-none absolute inset-0 z-20 rounded-xl"
-                            style={{
-                              background:
-                                currentAnimConfig.tier === 'common'
-                                  ? 'radial-gradient(circle, rgba(200,151,46,0.15) 0%, rgba(255,255,255,0.3) 60%)'
-                                  : `radial-gradient(circle, ${currentConfig.color}30 0%, ${currentConfig.color}10 40%, transparent 70%)`,
-                            }}
-                            initial={{ opacity: 0.8 }}
-                            animate={{ opacity: 0 }}
-                            transition={{ duration: 0.6, delay: 0.1 }}
-                          />
-                        )}
-                        {/* Type reveal effect */}
-                        <TypeRevealEffect types={currentCard.types} active={typeRevealing} />
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 pt-8">
-                          <p className="truncate text-sm font-medium text-white">
-                            {currentCard.name}
-                          </p>
-                          <RarityBadge
-                            rarity={currentCard.rarity as Rarity}
-                            className="mt-0.5 text-[10px]"
-                          />
-                        </div>
+                      )}
+                      {/* Type reveal effect */}
+                      <TypeRevealEffect types={currentCard.types} active={typeRevealing} />
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 pt-8">
+                        <p className="truncate text-sm font-medium text-white">
+                          {currentCard.name}
+                        </p>
+                        <RarityBadge
+                          rarity={currentCard.rarity as Rarity}
+                          className="mt-0.5 text-[10px]"
+                        />
                       </div>
+                    </motion.div>
 
-                      {/* ---- Back face ---- */}
-                      <div className="backface-hidden rotate-y-180 absolute inset-0 overflow-hidden rounded-xl border border-border bg-surface-elevated">
-                        <div className="flex h-full items-center justify-center">
-                          <div className="h-20 w-20 rounded-full border border-border bg-surface" />
-                        </div>
-                        <div className="absolute inset-2 rounded-lg border border-border/50" />
+                    {/* ---- Back face ---- */}
+                    <motion.div
+                      className="absolute inset-0 overflow-hidden rounded-xl"
+                      initial={false}
+                      animate={{ opacity: cardFlipped ? 0 : 1, scaleX: cardFlipped ? 0 : 1 }}
+                      transition={{ duration: currentAnimConfig.flipDuration * 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                        <Image
+                          src="/pokemon_card_backside_in_high_resolution.png"
+                          alt="Card back"
+                          fill
+                          sizes="(max-width: 640px) 50vw, 200px"
+                          className="object-cover"
+                          priority
+                        />
 
                         {/* Pre-reveal glow */}
                         {showPreRevealGlow && currentAnimConfig.glowIntensity > 0 && (
@@ -704,7 +728,6 @@ export function PackOpeningAnimation({
                         {showPreRevealGlow && currentAnimConfig.crackEffect && (
                           <CrackEffect color={currentConfig.color} />
                         )}
-                      </div>
                     </motion.div>
 
                     {/* Particles */}
@@ -758,55 +781,84 @@ export function PackOpeningAnimation({
               {orderedCards.map((card, i) => {
                 const config = RARITY_CONFIG[card.rarity as Rarity];
                 const isHoloEligible = rarityOrder(card.rarity) >= 2;
+                const isRevealed = revealedIndices.has(i);
 
                 return (
                   <motion.div
                     key={`${card.id}-${i}`}
-                    className="perspective-1000"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{
                       duration: 0.4,
-                      delay: i * 0.06,
+                      delay: 0.15 + i * 0.12,
                       ease: [0.16, 1, 0.3, 1],
                     }}
                   >
-                    <HoloCard isActive={isHoloEligible}>
-                      <div
-                        className={cn(
-                          'relative aspect-[2.5/3.5] cursor-pointer',
-                          isHoloEligible && 'cursor-pointer'
-                        )}
-                        onClick={() => {
-                          if (rarityOrder(card.rarity) >= 2) setImmersiveCard(card);
-                        }}
-                      >
-                        <div
-                          className={cn(
-                            'absolute inset-0 overflow-hidden rounded-xl border',
-                            config.borderClass
-                          )}
-                        >
-                          <img
-                            src={card.image_url_hires || card.image_url}
-                            alt={card.name}
-                            className="h-full w-full object-contain"
-                          />
-                          {card.is_reverse_holo && (
-                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-white/10" />
-                          )}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pt-6">
-                            <p className="truncate text-xs font-medium text-white">
-                              {card.name}
-                            </p>
-                            <RarityBadge
-                              rarity={card.rarity as Rarity}
-                              className="mt-0.5 text-[9px]"
+                    <div className="relative aspect-[2.5/3.5]">
+                      {/* Card back — shown initially, exits when revealed */}
+                      <AnimatePresence>
+                        {!isRevealed && (
+                          <motion.div
+                            className="absolute inset-0 overflow-hidden rounded-xl"
+                            initial={{ opacity: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.3 }}
+                          >
+                            <Image
+                              src="/pokemon_card_backside_in_high_resolution.png"
+                              alt="Card back"
+                              fill
+                              sizes="(max-width: 640px) 40vw, 160px"
+                              className="object-cover"
                             />
-                          </div>
-                        </div>
-                      </div>
-                    </HoloCard>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Card front — mounts fresh when revealed */}
+                      {isRevealed && (
+                        <motion.div
+                          className="absolute inset-0"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        >
+                          <HoloCard isActive={isHoloEligible} rarity={card.rarity as Rarity} seed={card.id}>
+                            <div
+                              className="relative h-full w-full cursor-pointer"
+                              onClick={() => {
+                                if (rarityOrder(card.rarity) >= 2) setImmersiveCard(card);
+                              }}
+                            >
+                              <div
+                                className={cn(
+                                  'absolute inset-0 overflow-hidden rounded-xl border',
+                                  config.borderClass
+                                )}
+                              >
+                                <img
+                                  src={card.image_url_hires || card.image_url}
+                                  alt={card.name}
+                                  className="h-full w-full object-contain"
+                                />
+                                {card.is_reverse_holo && (
+                                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-white/10" />
+                                )}
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 pt-6">
+                                  <p className="truncate text-xs font-medium text-white">
+                                    {card.name}
+                                  </p>
+                                  <RarityBadge
+                                    rarity={card.rarity as Rarity}
+                                    className="mt-0.5 text-[9px]"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </HoloCard>
+                        </motion.div>
+                      )}
+                    </div>
                   </motion.div>
                 );
               })}
@@ -816,7 +868,7 @@ export function PackOpeningAnimation({
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.8, delay: 0.15 + orderedCards.length * 0.12 + 0.3, ease: [0.16, 1, 0.3, 1] }}
               className="mt-10 flex flex-col items-center gap-6"
             >
               <div className="h-px w-16 bg-border" />
