@@ -159,9 +159,6 @@ function HoloCard({
     });
   }, []);
 
-  // Extract holo angle for ShinyEffect (avoid duplicate mouse tracking)
-  const holoAngleValue = (holoStyle as Record<string, string>)['--holo-angle'];
-
   return (
     <div
       ref={cardRef}
@@ -184,7 +181,7 @@ function HoloCard({
         style={holoStyle}
       />
       {rarity && isShinyRarity(rarity) && (
-        <ShinyEffect rarity={rarity} seed={seed} holoAngle={holoAngleValue} asOverlay />
+        <ShinyEffect rarity={rarity} seed={seed} asOverlay />
       )}
     </div>
   );

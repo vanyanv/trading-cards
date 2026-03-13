@@ -189,7 +189,7 @@ function CardSlot({
             )}
             {/* Shiny effect for shiny cards */}
             {isShinyRarity(card.rarity as Rarity) && (
-              <ShinyEffect rarity={card.rarity as Rarity} seed={card.id} disableMouseTracking asOverlay />
+              <ShinyEffect rarity={card.rarity as Rarity} seed={card.id} asOverlay />
             )}
           </motion.div>
         </motion.div>

@@ -206,9 +206,30 @@ export const RARITY_CONFIG: Record<
   },
 };
 
-/** Check if a rarity is a shiny tier (OneShiny or TwoShiny). */
+/** Check if a rarity qualifies for the shiny holographic effect (Rare and above). */
 export function isShinyRarity(rarity: Rarity): boolean {
-  return rarity === Rarity.OneShiny || rarity === Rarity.TwoShiny;
+  switch (rarity) {
+    // Standard TCG rarities
+    case Rarity.Rare:
+    case Rarity.DoubleRare:
+    case Rarity.IllustrationRare:
+    case Rarity.UltraRare:
+    case Rarity.SpecialIllustrationRare:
+    case Rarity.HyperRare:
+    // TCG Pocket diamond/star rarities
+    case Rarity.ThreeDiamond:
+    case Rarity.FourDiamond:
+    case Rarity.OneStar:
+    case Rarity.TwoStar:
+    case Rarity.ThreeStar:
+    case Rarity.Crown:
+    // TCG Pocket shiny rarities
+    case Rarity.OneShiny:
+    case Rarity.TwoShiny:
+      return true;
+    default:
+      return false;
+  }
 }
 
 // --- Era-based hit slot pull rates ---

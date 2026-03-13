@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { isShinyRarity } from '@/lib/constants';
 import { Rarity } from '@/types';
@@ -28,57 +28,98 @@ interface ShinyEffectProps {
   rarity: Rarity;
   children?: React.ReactNode;
   className?: string;
-  /** When true, always uses CSS auto-sweep instead of mouse tracking. */
-  disableMouseTracking?: boolean;
-  /** Externally-provided holo angle (degrees). Accepts number or CSS string like "145.3deg". */
-  holoAngle?: number | string;
   /** Stable string for deterministic sparkle positioning. */
   seed?: string;
   /** When true, renders only overlay layers (no wrapper div around children). */
   asOverlay?: boolean;
 }
 
-const SHINY_CONFIG = {
-  [Rarity.OneShiny]: {
-    holoOpacity: 0.3,
-    holoBlur: 12,
-    holoSaturation: 0.8,
-    borderGlow: '0 0 6px rgba(232, 121, 249, 0.3)',
-    particleCountDesktop: 5,
-    particleCountMobile: 3,
-    maxSize: 6,
-    particleColor: 'rgba(255, 255, 255, 0.85)',
-    particleShadowColor: 'rgba(255, 255, 255, 0.6)',
-  },
-  [Rarity.TwoShiny]: {
-    holoOpacity: 0.5,
-    holoBlur: 8,
-    holoSaturation: 1.0,
-    borderGlow: '0 0 12px rgba(192, 132, 252, 0.5)',
-    particleCountDesktop: 10,
-    particleCountMobile: 6,
-    maxSize: 10,
-    particleColor: 'rgba(255, 248, 220, 0.95)',
-    particleShadowColor: 'rgba(255, 215, 0, 0.7)',
-  },
-} as const satisfies Record<string, {
-  holoOpacity: number;
-  holoBlur: number;
-  holoSaturation: number;
-  borderGlow: string;
+type ShinyConfig = {
   particleCountDesktop: number;
   particleCountMobile: number;
   maxSize: number;
   particleColor: string;
   particleShadowColor: string;
-}>;
+};
+
+// Subtle tier — Rare, ThreeDiamond
+const SUBTLE: ShinyConfig = {
+  particleCountDesktop: 3,
+  particleCountMobile: 2,
+  maxSize: 4,
+  particleColor: 'rgba(255, 255, 255, 0.7)',
+  particleShadowColor: 'rgba(255, 255, 255, 0.4)',
+};
+
+// Mild tier — DoubleRare, FourDiamond
+const MILD: ShinyConfig = {
+  particleCountDesktop: 5,
+  particleCountMobile: 3,
+  maxSize: 5,
+  particleColor: 'rgba(255, 255, 255, 0.8)',
+  particleShadowColor: 'rgba(255, 255, 255, 0.5)',
+};
+
+// Medium tier — IllustrationRare, OneStar, OneShiny
+const MEDIUM: ShinyConfig = {
+  particleCountDesktop: 5,
+  particleCountMobile: 3,
+  maxSize: 6,
+  particleColor: 'rgba(255, 255, 255, 0.85)',
+  particleShadowColor: 'rgba(255, 255, 255, 0.6)',
+};
+
+// Strong tier — UltraRare, TwoStar, TwoShiny
+const STRONG: ShinyConfig = {
+  particleCountDesktop: 10,
+  particleCountMobile: 6,
+  maxSize: 10,
+  particleColor: 'rgba(255, 248, 220, 0.95)',
+  particleShadowColor: 'rgba(255, 215, 0, 0.7)',
+};
+
+// Intense tier — SpecialIllustrationRare, ThreeStar
+const INTENSE: ShinyConfig = {
+  particleCountDesktop: 12,
+  particleCountMobile: 7,
+  maxSize: 12,
+  particleColor: 'rgba(255, 248, 220, 0.95)',
+  particleShadowColor: 'rgba(255, 215, 0, 0.8)',
+};
+
+// Maximum tier — HyperRare, Crown
+const MAXIMUM: ShinyConfig = {
+  particleCountDesktop: 15,
+  particleCountMobile: 8,
+  maxSize: 14,
+  particleColor: 'rgba(255, 248, 220, 1)',
+  particleShadowColor: 'rgba(255, 215, 0, 0.9)',
+};
+
+const SHINY_CONFIG: Partial<Record<Rarity, ShinyConfig>> = {
+  // Standard TCG rarities
+  [Rarity.Rare]: SUBTLE,
+  [Rarity.DoubleRare]: MILD,
+  [Rarity.IllustrationRare]: MEDIUM,
+  [Rarity.UltraRare]: STRONG,
+  [Rarity.SpecialIllustrationRare]: INTENSE,
+  [Rarity.HyperRare]: MAXIMUM,
+  // TCG Pocket diamond/star rarities
+  [Rarity.ThreeDiamond]: SUBTLE,
+  [Rarity.FourDiamond]: MILD,
+  [Rarity.OneStar]: MEDIUM,
+  [Rarity.TwoStar]: STRONG,
+  [Rarity.ThreeStar]: INTENSE,
+  [Rarity.Crown]: MAXIMUM,
+  // TCG Pocket shiny rarities
+  [Rarity.OneShiny]: MEDIUM,
+  [Rarity.TwoShiny]: STRONG,
+};
 
 export function ShinyEffect({
   rarity,
   children,
   className,
-  disableMouseTracking = false,
-  holoAngle,
   seed,
   asOverlay = false,
 }: ShinyEffectProps) {
@@ -96,80 +137,32 @@ export function ShinyEffect({
     return asOverlay ? null : <>{children}</>;
   }
 
-  const config = SHINY_CONFIG[rarity as Rarity.OneShiny | Rarity.TwoShiny];
+  const config = SHINY_CONFIG[rarity];
   if (!config) {
     return asOverlay ? null : <>{children}</>;
   }
 
-  const overlayLayers = (
-    <ShinyOverlayLayers
-      config={config}
-      disableMouseTracking={disableMouseTracking}
-      holoAngle={holoAngle}
-      seed={seed}
-    />
-  );
+  const sparkles = <SparkleParticles config={config} seed={seed} />;
 
   if (asOverlay) {
-    return overlayLayers;
+    return sparkles;
   }
 
   return (
     <div className={cn('relative', className)}>
       {children}
-      {overlayLayers}
+      {sparkles}
     </div>
   );
 }
 
-// Separated into its own component to avoid conditional hooks in ShinyEffect
-function ShinyOverlayLayers({
+function SparkleParticles({
   config,
-  disableMouseTracking,
-  holoAngle: externalAngle,
   seed,
 }: {
-  config: (typeof SHINY_CONFIG)[keyof typeof SHINY_CONFIG];
-  disableMouseTracking: boolean;
-  holoAngle?: number | string;
+  config: ShinyConfig;
   seed?: string;
 }) {
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef<number>(0);
-  const [angle, setAngle] = useState<number | null>(null);
-
-  // Normalize external angle
-  const normalizedExternal = useMemo(() => {
-    if (externalAngle == null) return null;
-    if (typeof externalAngle === 'number') return externalAngle;
-    return parseFloat(externalAngle) || null;
-  }, [externalAngle]);
-
-  const hasExternalAngle = normalizedExternal != null;
-  const useMouseTracking = !disableMouseTracking && !hasExternalAngle;
-
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!useMouseTracking) return;
-      const el = wrapperRef.current;
-      if (!el) return;
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(() => {
-        const rect = el.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / rect.width;
-        const y = (e.clientY - rect.top) / rect.height;
-        const a = Math.atan2(y - 0.5, x - 0.5) * (180 / Math.PI) + 90;
-        setAngle(a);
-      });
-    },
-    [useMouseTracking],
-  );
-
-  const handleMouseLeave = useCallback(() => {
-    if (useMouseTracking) setAngle(null);
-  }, [useMouseTracking]);
-
-  // Generate sparkle particles
   const particles = useMemo(() => {
     const hash = hashSeed(seed || 'default');
     const rng = seededRandom(hash);
@@ -177,7 +170,7 @@ function ShinyOverlayLayers({
     const totalMobile = config.particleCountMobile;
 
     return Array.from({ length: totalDesktop }, (_, i) => ({
-      x: rng() * 90 + 5, // 5-95% to keep within bounds
+      x: rng() * 90 + 5,
       y: rng() * 90 + 5,
       size: 2 + rng() * (config.maxSize - 2),
       delay: rng() * 2.5,
@@ -186,33 +179,11 @@ function ShinyOverlayLayers({
     }));
   }, [seed, config.particleCountDesktop, config.particleCountMobile, config.maxSize]);
 
-  // Determine holo angle style
-  const effectiveAngle = hasExternalAngle ? normalizedExternal : angle;
-  const holoStyle: React.CSSProperties =
-    effectiveAngle != null
-      ? { '--holo-angle': `${effectiveAngle}deg` } as React.CSSProperties
-      : {};
-
   return (
     <div
-      ref={wrapperRef}
       className="pointer-events-none absolute inset-0"
       style={{ borderRadius: 'inherit' }}
-      onMouseMove={useMouseTracking ? handleMouseMove : undefined}
-      onMouseLeave={useMouseTracking ? handleMouseLeave : undefined}
     >
-      {/* Holographic overlay */}
-      <div
-        className="shiny-holo-overlay"
-        style={{
-          ...holoStyle,
-          opacity: config.holoOpacity,
-          filter: `blur(${config.holoBlur}px) saturate(${config.holoSaturation})`,
-          boxShadow: config.borderGlow,
-        }}
-      />
-
-      {/* Sparkle particles */}
       {particles.map((p, i) => (
         <div
           key={i}

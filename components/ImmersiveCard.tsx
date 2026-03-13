@@ -171,7 +171,6 @@ export function ImmersiveCard({ card, onClose }: ImmersiveCardProps) {
                 <ShinyEffect
                   rarity={card.rarity as Rarity}
                   seed={card.id}
-                  holoAngle={(activeStyle as Record<string, string>)['--holo-angle']}
                   asOverlay
                 />
               </div>

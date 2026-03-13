@@ -392,31 +392,6 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ===== Shiny Card Effects ===== */
 
-/* Shiny holographic overlay — conic-gradient for vivid rainbow prismatic effect */
-.shiny-holo-overlay {
-  background: conic-gradient(from var(--holo-angle, 0deg),
-    red, orange, yellow, green, blue, purple, magenta, red);
-  mix-blend-mode: color-dodge;
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  transition: opacity 0.3s ease;
-}
-
-/* Dedicated auto-sweep for shiny overlay — only animates --holo-angle */
-@keyframes shiny-holo-auto {
-  0%   { --holo-angle: 80deg; }
-  50%  { --holo-angle: 160deg; }
-  100% { --holo-angle: 80deg; }
-}
-
-@media (hover: none) {
-  .shiny-holo-overlay {
-    animation: shiny-holo-auto 4s linear infinite;
-  }
-}
-
 /* Shiny sparkle particle animation */
 @keyframes shiny-sparkle {
   0%, 100% {
@@ -445,7 +420,7 @@ h1, h2, h3, h4, h5, h6 {
   .spotlight-border { animation: none; }
   .holo-overlay { display: none; }
   .immersive-holo-overlay { display: none; }
-  .shiny-sparkle, .shiny-holo-overlay { display: none !important; }
+  .shiny-sparkle { display: none !important; }
   .glow-pulse { animation: none; }
 }
 
