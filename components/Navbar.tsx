@@ -169,7 +169,7 @@ export function Navbar() {
   ];
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-surface/85 backdrop-blur-xl">
+    <nav className="sticky top-0 z-50 border-b border-border bg-surface sm:bg-surface/85 sm:backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-3 sm:px-6">
         <div className="flex items-center gap-4 sm:gap-8">
           <Link
@@ -185,7 +185,7 @@ export function Navbar() {
           {/* Hamburger — mobile only */}
           <button
             onClick={() => setMobileOpen((prev) => !prev)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground transition-colors hover:text-foreground sm:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface-elevated text-foreground transition-colors hover:bg-border sm:hidden"
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -215,26 +215,26 @@ export function Navbar() {
           <ThemeToggle />
           {user ? (
             <>
-              {/* Unopened packs badge — desktop only */}
+              {/* Unopened packs badge */}
               {unopenedCount > 0 && (
                 <Link
                   href="/collection"
-                  className="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold transition-colors hover:opacity-80 sm:flex"
+                  className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold transition-colors hover:opacity-80 sm:px-2.5 sm:py-1 sm:text-sm"
                   style={{
                     backgroundColor: 'rgba(234,179,8,0.12)',
                     color: '#eab308',
                     border: '1px solid rgba(234,179,8,0.2)',
                   }}
                 >
-                  <Package className="h-3.5 w-3.5" />
+                  <Package className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   <span className="tabular-nums">{unopenedCount}</span>
                 </Link>
               )}
 
-              {/* Balance display — desktop only */}
+              {/* Balance display */}
               {balance !== null && (
                 <div
-                  className="hidden items-center rounded-full px-3 py-1 text-sm font-semibold tabular-nums sm:flex"
+                  className="flex items-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums sm:px-3 sm:py-1 sm:text-sm"
                   style={{
                     backgroundColor: 'rgba(34,197,94,0.1)',
                     color: '#4ade80',
@@ -244,9 +244,7 @@ export function Navbar() {
                   ${formatBalance(displayBalance)}
                 </div>
               )}
-              <div className="hidden sm:block">
-                <UserMenu supabase={supabase!} userId={user.id} />
-              </div>
+              <UserMenu supabase={supabase!} userId={user.id} />
             </>
           ) : (
             <div className="flex items-center gap-1.5 sm:gap-3">
@@ -306,43 +304,6 @@ export function Navbar() {
                 ))}
               </div>
 
-              {/* Account info — mobile only */}
-              {user && (
-                <div className="border-t border-border px-4 py-4">
-                  <div className="flex items-center gap-2">
-                    {balance !== null && (
-                      <div
-                        className="flex items-center rounded-full px-3 py-1 text-sm font-semibold tabular-nums"
-                        style={{
-                          backgroundColor: 'rgba(34,197,94,0.1)',
-                          color: '#4ade80',
-                          border: '1px solid rgba(34,197,94,0.2)',
-                        }}
-                      >
-                        ${formatBalance(displayBalance)}
-                      </div>
-                    )}
-                    {unopenedCount > 0 && (
-                      <Link
-                        href="/collection"
-                        onClick={() => setMobileOpen(false)}
-                        className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold transition-colors hover:opacity-80"
-                        style={{
-                          backgroundColor: 'rgba(234,179,8,0.12)',
-                          color: '#eab308',
-                          border: '1px solid rgba(234,179,8,0.2)',
-                        }}
-                      >
-                        <Package className="h-3.5 w-3.5" />
-                        <span className="tabular-nums">{unopenedCount}</span>
-                      </Link>
-                    )}
-                  </div>
-                  <div className="mt-3">
-                    <UserMenu supabase={supabase!} userId={user.id} />
-                  </div>
-                </div>
-              )}
             </motion.div>
           </>
         )}
