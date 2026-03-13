@@ -18,6 +18,14 @@ const EXCLUDE_PATTERNS = [
   /\bcase\b/i,
   /\bdisplay\b/i,
   /\bbox\s*(break|opening)/i,
+  /\bPSA\s*\d/i,
+  /\bBGS\s*[\d.]/i,
+  /\bCGC\s*[\d.]/i,
+  /\bgraded\b/i,
+  /\bart\s+set\b/i,
+  /\bcomplete\s+set\b/i,
+  /\brepack\b/i,
+  /\bcustom\b/i,
 ];
 
 function isRelevantListing(title: string): boolean {
@@ -87,6 +95,22 @@ function parseSoldListings(html: string): EbaySoldListing[] {
   return listings;
 }
 
+// Statistical outlier removal using interquartile range
+function removeOutliersIQR(prices: number[]): number[] {
+  if (prices.length < 4) return prices;
+
+  const sorted = [...prices].sort((a, b) => a - b);
+  const q1Index = Math.floor(sorted.length * 0.25);
+  const q3Index = Math.floor(sorted.length * 0.75);
+  const q1 = sorted[q1Index];
+  const q3 = sorted[q3Index];
+  const iqr = q3 - q1;
+  const lowerBound = q1 - 1.5 * iqr;
+  const upperBound = q3 + 1.5 * iqr;
+
+  return sorted.filter((p) => p >= lowerBound && p <= upperBound);
+}
+
 // Pack-specific eBay sold listing functions
 
 function getEditionSearchTerms(edition?: Edition | null): string {
@@ -109,14 +133,21 @@ function getMaxPrice(edition?: Edition | null): number {
     case 'shadowless':
       return 15000;
     default:
-      return 500;
+      return 5000; // vintage non-edition packs (Skyridge, Aquapolis, etc.) can be $500+
   }
+}
+
+export interface EbayPriceResult {
+  price: number;
+  listingsUsed: number;
+  listingsTotal: number;
+  priceRange: [number, number];
 }
 
 export async function scrapePackSoldPrice(
   setName: string,
   edition?: Edition | null
-): Promise<number | null> {
+): Promise<EbayPriceResult | null> {
   const query = encodeURIComponent(
     `pokemon ${setName} booster pack -box -etb -elite${getEditionSearchTerms(edition)}`
   );
@@ -135,16 +166,30 @@ export async function scrapePackSoldPrice(
 
     const html = await res.text();
     const listings = parseSoldListings(html);
+    const listingsTotal = listings.length;
 
-    // Filter to valid price range
+    // Prefer listings whose title actually mentions the set name
+    const setLower = setName.toLowerCase();
+    const titleMatched = listings.filter((l) => {
+      const titleLower = l.title.toLowerCase();
+      return (
+        titleLower.includes(setLower) ||
+        titleLower.includes(setLower.replace(/\s+/g, ''))
+      );
+    });
+    const filteredListings = titleMatched.length >= 3 ? titleMatched : listings;
+
+    // Extract prices, apply safety floor and IQR outlier removal
     const maxPrice = getMaxPrice(edition);
-    const validPrices = listings
+    const rawPrices = filteredListings
       .map((l) => l.price)
       .filter((p) => p >= 1 && p <= maxPrice);
 
+    const validPrices = removeOutliersIQR(rawPrices);
+
     if (validPrices.length < 3) return null;
 
-    // Median to avoid outlier skew
+    // Median to avoid remaining skew
     validPrices.sort((a, b) => a - b);
     const mid = Math.floor(validPrices.length / 2);
     const median =
@@ -152,7 +197,12 @@ export async function scrapePackSoldPrice(
         ? (validPrices[mid - 1] + validPrices[mid]) / 2
         : validPrices[mid];
 
-    return parseFloat(median.toFixed(2));
+    return {
+      price: parseFloat(median.toFixed(2)),
+      listingsUsed: validPrices.length,
+      listingsTotal,
+      priceRange: [validPrices[0], validPrices[validPrices.length - 1]],
+    };
   } catch {
     return null;
   }

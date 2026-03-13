@@ -53,9 +53,9 @@ export async function GET(
       }
     } else {
       // Try to find the product on TCGPlayer
-      const product = await findPackProduct(pack.set_name, pack.edition);
-      if (product) {
-        const details = await getProductDetails(product.productId);
+      const match = await findPackProduct(pack.set_name, pack.edition);
+      if (match) {
+        const details = await getProductDetails(match.result.productId);
         if (details) {
           pricing = {
             marketPrice: details.marketPrice,
@@ -69,7 +69,7 @@ export async function GET(
           // Cache the product ID for future lookups
           await supabase
             .from('packs')
-            .update({ tcgplayer_product_id: product.productId })
+            .update({ tcgplayer_product_id: match.result.productId })
             .eq('id', packId);
         }
       }

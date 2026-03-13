@@ -99,6 +99,17 @@ export function PackCard({
                 {EDITION_CONFIG[pack.edition as Edition].shortLabel}
               </div>
             )}
+            {pack.set_symbol_url && (
+              <div className="pointer-events-none absolute bottom-3 right-3">
+                <Image
+                  src={pack.set_symbol_url}
+                  alt=""
+                  width={16}
+                  height={16}
+                  className="opacity-60 drop-shadow-sm"
+                />
+              </div>
+            )}
           </div>
 
           <div className="p-4">

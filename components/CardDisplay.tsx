@@ -90,6 +90,17 @@ export function CardDisplay({
           {isReverseHolo && (
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-white/10" />
           )}
+          {card.set_symbol_url && (
+            <div className="pointer-events-none absolute bottom-1.5 left-1.5 z-10">
+              <Image
+                src={card.set_symbol_url}
+                alt=""
+                width={16}
+                height={16}
+                className="opacity-60 drop-shadow-sm"
+              />
+            </div>
+          )}
           {sellMode && (
             <div className="absolute left-2 top-2 z-10">
               <div className={cn(
@@ -147,6 +158,9 @@ export function CardDisplay({
               >
                 ${card.price.toFixed(2)}
               </span>
+              {card.price_source === 'estimate' && (
+                <span className="text-[9px] text-muted-dim">est.</span>
+              )}
               {card.condition && card.condition !== 'NM' && (
                 <span className="text-[10px] text-muted-dim">({card.condition})</span>
               )}

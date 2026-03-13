@@ -49,15 +49,20 @@ export function BrowsePacks({ packs: initialPacks }: { packs: Pack[] }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Unique sets with counts
+  // Unique sets with counts and symbol URLs
   const setOptions = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { count: number; symbolUrl: string | null }>();
     for (const pack of packs) {
-      map.set(pack.set_name, (map.get(pack.set_name) || 0) + 1);
+      const existing = map.get(pack.set_name);
+      if (existing) {
+        existing.count++;
+      } else {
+        map.set(pack.set_name, { count: 1, symbolUrl: pack.set_symbol_url ?? null });
+      }
     }
     return Array.from(map.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([name, count]) => ({ name, count }));
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([name, { count, symbolUrl }]) => ({ name, count, symbolUrl }));
   }, [packs]);
 
   // Filtered set options for dropdown search
@@ -229,7 +234,7 @@ export function BrowsePacks({ packs: initialPacks }: { packs: Pack[] }) {
                   {filteredSetOptions.length === 0 ? (
                     <p className="px-3 py-4 text-center text-xs text-muted">No sets found</p>
                   ) : (
-                    filteredSetOptions.map(({ name, count }) => {
+                    filteredSetOptions.map(({ name, count, symbolUrl }) => {
                       const isSelected = selectedSets.includes(name);
                       return (
                         <button
@@ -248,6 +253,9 @@ export function BrowsePacks({ packs: initialPacks }: { packs: Pack[] }) {
                           }`}>
                             {isSelected && <Check className="h-3 w-3 text-background" />}
                           </div>
+                          {symbolUrl && (
+                            <Image src={symbolUrl} alt="" width={14} height={14} className="shrink-0 opacity-60" />
+                          )}
                           <span className="flex-1 truncate">{name}</span>
                           <span className="text-xs text-muted-dim">{count}</span>
                         </button>

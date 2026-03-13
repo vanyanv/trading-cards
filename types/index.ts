@@ -41,6 +41,13 @@ export interface Card {
   price_trend?: 'up' | 'down' | 'stable';
   price_source?: 'tcgplayer' | 'cardmarket' | 'estimate';
   condition?: string;
+  variants?: {
+    normal?: boolean;
+    holo?: boolean;
+    reverse?: boolean;
+    firstEdition?: boolean;
+  } | null;
+  set_symbol_url?: string | null;
 }
 
 export interface Pack {
@@ -60,6 +67,8 @@ export interface Pack {
   tcgplayer_product_id?: number | null;
   price_source?: 'tcgplayer' | 'ebay' | 'estimate' | null;
   price_updated_at?: string | null;
+  set_symbol_url?: string | null;
+  serie_logo_url?: string | null;
   created_at: string;
   release_date?: string | null;
 }

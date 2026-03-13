@@ -16,6 +16,11 @@ on:
         required: false
         default: 'false'
         type: boolean
+      dry_run:
+        description: 'Dry run — show what would change without writing to database'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   sync:
@@ -41,5 +46,8 @@ jobs:
           fi
           if [ "${{ inputs.force_refresh }}" = "true" ]; then
             ARGS="$ARGS --force"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run --audit"
           fi
           npx tsx scripts/sync-pack-prices.ts $ARGS

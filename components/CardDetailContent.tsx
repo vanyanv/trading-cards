@@ -288,6 +288,25 @@ export function CardDetailContent({
           {/* Card details rows */}
           <div className="mt-8 space-y-2">
             <DetailRow label="Set" value={card.set_name} />
+            {card.variants && (
+              <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
+                <span className="text-xs uppercase tracking-wider text-muted">Variants</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {card.variants.normal && (
+                    <span className="rounded-full bg-surface-elevated px-2 py-0.5 text-[10px] font-medium text-muted">Normal</span>
+                  )}
+                  {card.variants.holo && (
+                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">Holo</span>
+                  )}
+                  {card.variants.reverse && (
+                    <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-400">Reverse Holo</span>
+                  )}
+                  {card.variants.firstEdition && (
+                    <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-400">1st Edition</span>
+                  )}
+                </div>
+              </div>
+            )}
             {detail?.illustrator && (
               <DetailRow label="Illustrator" value={detail.illustrator} />
             )}

@@ -122,6 +122,15 @@ export function PackDetail({
           {/* Pack info */}
           <div className="flex flex-1 flex-col">
             <div className="flex items-center gap-2">
+              {selectedPack.serie_logo_url && (
+                <Image
+                  src={selectedPack.serie_logo_url}
+                  alt=""
+                  width={24}
+                  height={24}
+                  className="opacity-70"
+                />
+              )}
               <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-dim">
                 {selectedPack.set_name}
               </p>

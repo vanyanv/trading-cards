@@ -8,6 +8,7 @@ import {
   isVintagePack,
 } from './tcgplayer-api';
 import { scrapePackSoldPrice } from './ebay-scraper';
+import { SyncAuditLog, AuditEntry, computeFlags } from './sync-audit';
 import type { Edition } from '@/types';
 
 interface PackRow {
@@ -26,6 +27,8 @@ export interface SyncResult {
   fallback: number;
   failed: number;
   skipped: number;
+  flagged: number;
+  auditLog?: AuditEntry[];
 }
 
 export async function syncPackPrices(
@@ -33,11 +36,23 @@ export async function syncPackPrices(
   options: {
     updateImages?: boolean;
     forceRefresh?: boolean;
+    dryRun?: boolean;
+    audit?: boolean;
+    resetIds?: boolean;
     onProgress?: (message: string) => void;
   } = {}
 ): Promise<SyncResult> {
-  const { updateImages = false, forceRefresh = false, onProgress } = options;
+  const {
+    updateImages = false,
+    forceRefresh = false,
+    dryRun = false,
+    audit = false,
+    resetIds = false,
+    onProgress,
+  } = options;
   const log = onProgress ?? (() => {});
+  const auditLog = new SyncAuditLog();
+  const prefix = dryRun ? '[DRY RUN] ' : '';
 
   const result: SyncResult = {
     total: 0,
@@ -46,7 +61,12 @@ export async function syncPackPrices(
     fallback: 0,
     failed: 0,
     skipped: 0,
+    flagged: 0,
   };
+
+  if (dryRun) {
+    log('=== DRY RUN MODE — no database writes ===\n');
+  }
 
   // Check if new columns exist by trying to select them
   const { error: colCheck } = await supabase
@@ -75,7 +95,25 @@ export async function syncPackPrices(
   }
 
   result.total = packs.length;
-  log(`Found ${packs.length} packs to price\n`);
+  log(`${prefix}Found ${packs.length} packs to price\n`);
+
+  // Reset cached product IDs so all packs go through fresh matching
+  if (resetIds && hasNewColumns && !dryRun) {
+    const { error: resetError } = await supabase
+      .from('packs')
+      .update({ tcgplayer_product_id: null })
+      .not('tcgplayer_product_id', 'is', null);
+
+    if (resetError) {
+      log(`Warning: failed to reset product IDs: ${resetError.message}`);
+    } else {
+      log(`Reset all cached tcgplayer_product_id values\n`);
+      // Clear local values so they all go through unmapped path
+      for (const pack of packs as PackRow[]) {
+        pack.tcgplayer_product_id = null;
+      }
+    }
+  }
 
   // Split packs into those with and without TCGPlayer product IDs
   const mapped = hasNewColumns
@@ -85,9 +123,49 @@ export async function syncPackPrices(
     ? packs.filter((p: PackRow) => p.tcgplayer_product_id == null)
     : (packs as PackRow[]);
 
+  // Helper: create and record an audit entry
+  function recordAudit(
+    pack: PackRow,
+    source: AuditEntry['source'],
+    price: number | null,
+    extra: {
+      confidence?: number | null;
+      matchedProductName?: string | null;
+      matchedProductId?: number | null;
+      ebayListingsUsed?: number | null;
+    } = {}
+  ): AuditEntry {
+    const entry: AuditEntry = {
+      packId: pack.id,
+      setName: pack.set_name,
+      edition: pack.edition,
+      source,
+      price,
+      previousPrice: pack.price_usd,
+      confidence: extra.confidence ?? null,
+      matchedProductName: extra.matchedProductName ?? null,
+      matchedProductId: extra.matchedProductId ?? null,
+      ebayListingsUsed: extra.ebayListingsUsed ?? null,
+      flags: [],
+      timestamp: new Date().toISOString(),
+    };
+    entry.flags = computeFlags(entry);
+    auditLog.add(entry);
+    return entry;
+  }
+
+  // Helper: perform database update (skipped in dry-run)
+  async function updatePack(
+    packId: string,
+    updateData: Record<string, unknown>
+  ): Promise<{ error: { message: string } | null }> {
+    if (dryRun) return { error: null };
+    return supabase.from('packs').update(updateData).eq('id', packId);
+  }
+
   // Step 1: Batch fetch pricing for already-mapped packs
   if (mapped.length > 0) {
-    log(`Updating ${mapped.length} previously matched packs...`);
+    log(`${prefix}Updating ${mapped.length} previously matched packs...`);
     const productIds = mapped.map((p: PackRow) => p.tcgplayer_product_id!);
     const detailsMap = await getProductDetailsBatch(productIds);
 
@@ -105,69 +183,75 @@ export async function syncPackPrices(
           updateData.image_url = getProductImageUrl(pack.tcgplayer_product_id!);
         }
 
-        const { error: updateError } = await supabase
-          .from('packs')
-          .update(updateData)
-          .eq('id', pack.id);
+        const { error: updateError } = await updatePack(pack.id, updateData);
 
         if (updateError) {
           result.failed++;
-          log(`  ERROR ${pack.set_name}: ${updateError.message}`);
+          log(`  ${prefix}ERROR ${pack.set_name}: ${updateError.message}`);
         } else {
           result.tcgplayer++;
           const change = pack.price_usd ? ` (was $${pack.price_usd})` : '';
           const editionLabel = pack.edition ? ` [${pack.edition}]` : '';
-          log(`  ${pack.set_name}${editionLabel}: $${price.toFixed(2)} [tcgplayer]${change}`);
+          log(`  ${prefix}${pack.set_name}${editionLabel}: $${price.toFixed(2)} [tcgplayer]${change}`);
         }
+
+        recordAudit(pack, 'tcgplayer', price, {
+          matchedProductName: details?.productName,
+          matchedProductId: pack.tcgplayer_product_id,
+          confidence: 1.0,
+        });
       } else if (pack.price_usd != null && !forceRefresh) {
         result.skipped++;
-        log(`  ${pack.set_name}: kept $${pack.price_usd} (no TCGPlayer price)`);
+        log(`  ${prefix}${pack.set_name}: kept $${pack.price_usd} (no TCGPlayer price)`);
+        recordAudit(pack, 'skipped', pack.price_usd);
       } else {
         // Try eBay as second fallback
         await new Promise((r) => setTimeout(r, 1500));
-        const ebayPrice = await scrapePackSoldPrice(
+        const ebayResult = await scrapePackSoldPrice(
           pack.set_name,
-          pack.edition as 'unlimited' | '1st-edition' | 'shadowless' | null
+          pack.edition as Edition | null
         );
 
-        const price = ebayPrice ?? getEraFallbackPrice(pack.set_id);
-        const source = ebayPrice != null ? 'ebay' : 'estimate';
-        const updateData: Record<string, unknown> = { price_usd: price };
+        const finalPrice = ebayResult?.price ?? getEraFallbackPrice(pack.set_id);
+        const source = ebayResult != null ? 'ebay' : 'estimate';
+        const updateData: Record<string, unknown> = { price_usd: finalPrice };
         if (hasNewColumns) {
           updateData.price_source = source;
           updateData.price_updated_at = new Date().toISOString();
         }
 
-        const { error: updateError } = await supabase
-          .from('packs')
-          .update(updateData)
-          .eq('id', pack.id);
+        const { error: updateError } = await updatePack(pack.id, updateData);
 
         if (updateError) {
           result.failed++;
         } else {
           if (source === 'ebay') result.ebay++;
           else result.fallback++;
-          log(`  ${pack.set_name}: $${price.toFixed(2)} [${source}]`);
+          log(`  ${prefix}${pack.set_name}: $${finalPrice.toFixed(2)} [${source}]`);
         }
+
+        recordAudit(pack, source as AuditEntry['source'], finalPrice, {
+          ebayListingsUsed: ebayResult?.listingsUsed ?? null,
+        });
       }
     }
   }
 
   // Step 2: Search TCGPlayer for unmapped packs
   if (unmapped.length > 0) {
-    log(`\nSearching TCGPlayer for ${unmapped.length} unmatched packs...`);
+    log(`\n${prefix}Searching TCGPlayer for ${unmapped.length} unmatched packs...`);
   }
 
   for (const pack of unmapped as PackRow[]) {
     await new Promise((r) => setTimeout(r, 300));
 
-    const product = await findPackProduct(
+    const match = await findPackProduct(
       pack.set_name,
-      pack.edition as 'unlimited' | '1st-edition' | 'shadowless' | null
+      pack.edition as Edition | null
     );
 
-    if (product) {
+    if (match) {
+      const { result: product, confidence } = match;
       const details = await getProductDetails(product.productId);
       const price = details?.marketPrice ?? details?.medianPrice ?? product.marketPrice;
 
@@ -181,47 +265,47 @@ export async function syncPackPrices(
         updateData.price_usd = price;
       }
       // Only update images for packs from the hardcoded vintage mapping
-      // (search results often match wrong products like "Ascended Heroes")
       if (updateImages && isVintagePack(pack.set_name, pack.edition as Edition | null)) {
         updateData.image_url = product.imageUrl;
       }
 
       if (Object.keys(updateData).length > 0) {
-        const { error: updateError } = await supabase
-          .from('packs')
-          .update(updateData)
-          .eq('id', pack.id);
+        const { error: updateError } = await updatePack(pack.id, updateData);
 
         if (updateError) {
           result.failed++;
-          log(`  ERROR ${pack.set_name}: ${updateError.message}`);
+          log(`  ${prefix}ERROR ${pack.set_name}: ${updateError.message}`);
         } else {
           result.tcgplayer++;
           const priceStr = price != null ? `$${price.toFixed(2)}` : 'no price';
           const editionLabel = pack.edition ? ` [${pack.edition}]` : '';
-          log(`  ${pack.set_name}${editionLabel}: ${priceStr} [tcgplayer] (matched: ${product.productName})`);
+          const confStr = confidence < 1.0 ? ` (confidence: ${confidence.toFixed(2)})` : '';
+          log(`  ${prefix}${pack.set_name}${editionLabel}: ${priceStr} [tcgplayer] (matched: ${product.productName})${confStr}`);
         }
       }
+
+      recordAudit(pack, 'tcgplayer', price, {
+        confidence,
+        matchedProductName: product.productName,
+        matchedProductId: product.productId,
+      });
     } else {
       // No TCGPlayer match — try eBay sold listings
       await new Promise((r) => setTimeout(r, 1500));
-      const ebayPrice = await scrapePackSoldPrice(
+      const ebayResult = await scrapePackSoldPrice(
         pack.set_name,
-        pack.edition as 'unlimited' | '1st-edition' | 'shadowless' | null
+        pack.edition as Edition | null
       );
 
-      const price = ebayPrice ?? getEraFallbackPrice(pack.set_id);
-      const source = ebayPrice != null ? 'ebay' : 'estimate';
-      const updateData: Record<string, unknown> = { price_usd: price };
+      const finalPrice = ebayResult?.price ?? getEraFallbackPrice(pack.set_id);
+      const source = ebayResult != null ? 'ebay' : 'estimate';
+      const updateData: Record<string, unknown> = { price_usd: finalPrice };
       if (hasNewColumns) {
         updateData.price_source = source;
         updateData.price_updated_at = new Date().toISOString();
       }
 
-      const { error: updateError } = await supabase
-        .from('packs')
-        .update(updateData)
-        .eq('id', pack.id);
+      const { error: updateError } = await updatePack(pack.id, updateData);
 
       if (updateError) {
         result.failed++;
@@ -229,10 +313,24 @@ export async function syncPackPrices(
         if (source === 'ebay') result.ebay++;
         else result.fallback++;
         const editionLabel = pack.edition ? ` [${pack.edition}]` : '';
-        log(`  ${pack.set_name}${editionLabel}: $${price.toFixed(2)} [${source}] (no TCGPlayer match)`);
+        log(`  ${prefix}${pack.set_name}${editionLabel}: $${finalPrice.toFixed(2)} [${source}] (no TCGPlayer match)`);
       }
+
+      recordAudit(pack, source as AuditEntry['source'], finalPrice, {
+        ebayListingsUsed: ebayResult?.listingsUsed ?? null,
+      });
     }
   }
+
+  // Print audit summary
+  if (audit || dryRun) {
+    const summary = auditLog.getSummary();
+    log(`\n${prefix}Audit: ${summary.total} packs processed, ${summary.flagged} flagged`);
+    log(`  Sources: ${Object.entries(summary.bySource).map(([k, v]) => `${k}=${v}`).join(', ')}`);
+    auditLog.printFlagged(log);
+    result.auditLog = auditLog.getAll();
+  }
+  result.flagged = auditLog.getFlagged().length;
 
   return result;
 }

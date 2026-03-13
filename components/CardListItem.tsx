@@ -74,7 +74,18 @@ export function CardListItem({
           {card.name}{' '}
           <span className="text-muted-dim">#{cardNumber}</span>
         </span>
-        <span className="hidden text-xs text-muted sm:block">{card.set_name}</span>
+        <span className="hidden items-center gap-1 text-xs text-muted sm:flex">
+          {card.set_symbol_url && (
+            <Image
+              src={card.set_symbol_url}
+              alt=""
+              width={14}
+              height={14}
+              className="opacity-60"
+            />
+          )}
+          {card.set_name}
+        </span>
         <RarityBadge rarity={card.rarity as Rarity} />
         {card.types && card.types.length > 0 && (
           <span className="hidden text-xs text-muted md:block">
@@ -84,6 +95,9 @@ export function CardListItem({
         {card.price != null && (
           <span className="flex items-center gap-1 text-sm font-semibold tabular-nums">
             ${card.price.toFixed(2)}
+            {card.price_source === 'estimate' && (
+              <span className="text-[9px] text-muted-dim">est.</span>
+            )}
             {card.condition && card.condition !== 'NM' && (
               <span className="text-[10px] text-muted-dim">({card.condition})</span>
             )}

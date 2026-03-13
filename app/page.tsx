@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
-import type { Pack, Card } from '@/types';
+import type { Pack, Card, Rarity } from '@/types';
+import { getPriorRatesForSet } from '@/lib/constants';
 import { HomeContent } from '@/components/HomeContent';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,26 @@ export default async function HomePage() {
   const trendingPacks = (trendingData || []) as Pack[];
   const featuredCards = (featuredData || []) as Pick<Card, 'id' | 'name' | 'image_url' | 'image_url_hires' | 'rarity'>[];
 
+  // Compute filtered pull rates for the featured pack (top trending)
+  let featuredPullRates: { rarity: Rarity; weight: number }[] = [];
+  const featuredPack = trendingPacks[0];
+  if (featuredPack) {
+    const { data: setCards } = await supabase
+      .from('cards')
+      .select('rarity')
+      .eq('set_id', featuredPack.set_id);
+
+    const setRarities = new Set((setCards || []).map((c: { rarity: string }) => c.rarity));
+    const eraRates = getPriorRatesForSet(featuredPack.set_id);
+    const filtered = eraRates.filter((r) => setRarities.has(r.rarity));
+    const ratesForNorm = filtered.length > 0 ? filtered : eraRates;
+    const totalWeight = ratesForNorm.reduce((s, r) => s + r.weight, 0);
+    featuredPullRates = ratesForNorm.map((r) => ({
+      rarity: r.rarity,
+      weight: parseFloat(((r.weight / totalWeight) * 100).toFixed(1)),
+    }));
+  }
+
   // Shape recent pulls — filter for rare+ cards
   const rareRarities = ['Rare', 'Double Rare', 'Illustration Rare', 'Ultra Rare', 'Special Illustration Rare', 'Hyper Rare'];
   const filteredPulls = (recentPullsData || [])
@@ -56,6 +77,7 @@ export default async function HomePage() {
       trendingPacks={trendingPacks}
       featuredCards={featuredCards}
       recentPulls={recentPulls}
+      featuredPullRates={featuredPullRates}
     />
   );
 }

@@ -15,13 +15,15 @@ import {
   fetchCard,
   fetchCardsBySet,
   fetchSetDetail,
+  fetchSerieLogoUrl,
+  fetchSetSerieId,
   fetchSets,
   type TCGCard,
-  type TCGdexPricing,
 } from '../lib/pokemon-tcg-api';
 import { getEraFallbackPrice, RARITY_ESTIMATE_PRICES } from '../lib/constants';
 import { FIRST_EDITION_SET_IDS, SHADOWLESS_SET_IDS } from '../lib/constants';
 import { Rarity, type Edition } from '../types';
+import { extractPricing, buildPricingDetailRows } from '../lib/card-pricing';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey =
@@ -172,79 +174,11 @@ function mapRarity(apiRarity: string | undefined): Rarity {
   return mapped;
 }
 
-// --- Pricing extraction (improved fallback chain) ---
+// Pricing extraction imported from lib/card-pricing.ts
 
-const TCGPLAYER_VARIANTS = ['holofoil', 'normal', 'reverse-holofoil', '1stEditionHolofoil', '1stEditionNormal'] as const;
-const TCGPLAYER_PRICE_FIELDS = ['marketPrice', 'midPrice', 'lowPrice'] as const;
-const CARDMARKET_FIELDS = ['avg', 'trend', 'avg1', 'avg7', 'avg30', 'low'] as const;
-const CARDMARKET_HOLO_FIELDS = ['avg-holo', 'trend-holo', 'avg1-holo', 'avg7-holo', 'avg30-holo', 'low-holo'] as const;
+// --- Serie logo cache (deduplicate API calls across sets in the same serie) ---
 
-interface PricingResult {
-  price: number | null;
-  priceTrend: 'up' | 'down' | 'stable' | null;
-  priceSource: 'tcgplayer' | 'cardmarket' | null;
-  priceVariant: string | null;
-}
-
-function extractPricing(pricing: TCGdexPricing | undefined, isHolo = false): PricingResult {
-  if (!pricing) return { price: null, priceTrend: null, priceSource: null, priceVariant: null };
-
-  let price: number | null = null;
-  let priceSource: 'tcgplayer' | 'cardmarket' | null = null;
-  let priceVariant: string | null = null;
-
-  // Try TCGPlayer: each variant × each price field
-  if (pricing.tcgplayer) {
-    const tp = pricing.tcgplayer as Record<string, Record<string, number | null> | undefined>;
-    outer:
-    for (const variant of TCGPLAYER_VARIANTS) {
-      const vp = tp[variant];
-      if (!vp) continue;
-      for (const field of TCGPLAYER_PRICE_FIELDS) {
-        const val = vp[field];
-        if (val != null && val > 0) {
-          price = val;
-          priceSource = 'tcgplayer';
-          priceVariant = variant;
-          break outer;
-        }
-      }
-    }
-  }
-
-  // Fall back to Cardmarket
-  if (price == null && pricing.cardmarket) {
-    const cm = pricing.cardmarket as Record<string, number | null | undefined>;
-    // For holo cards, try holo-specific fields first
-    const fieldsToTry = isHolo
-      ? [...CARDMARKET_HOLO_FIELDS, ...CARDMARKET_FIELDS]
-      : CARDMARKET_FIELDS;
-
-    for (const field of fieldsToTry) {
-      const val = cm[field];
-      if (val != null && val > 0) {
-        price = val;
-        priceSource = 'cardmarket';
-        priceVariant = 'normal';
-        break;
-      }
-    }
-  }
-
-  // Determine trend from cardmarket short-term vs long-term averages
-  let priceTrend: 'up' | 'down' | 'stable' | null = null;
-  if (pricing.cardmarket) {
-    const { avg7, avg30 } = pricing.cardmarket;
-    if (avg7 != null && avg30 != null && avg30 > 0) {
-      const change = (avg7 - avg30) / avg30;
-      if (change > 0.1) priceTrend = 'up';
-      else if (change < -0.1) priceTrend = 'down';
-      else priceTrend = 'stable';
-    }
-  }
-
-  return { price, priceTrend, priceSource, priceVariant };
-}
+const serieLogoCache = new Map<string, string | null>();
 
 // --- Edition config ---
 
@@ -285,11 +219,12 @@ async function syncSet(setId: string, report: SyncReport) {
     else noPriced++;
 
     // Upsert card and get back the DB id for price history
+    const setSymbolUrl = card.set.symbol ? `${card.set.symbol}.webp` : null;
     const { data: upsertData, error } = await supabase.from('cards').upsert(
       {
         name: card.name,
-        image_url: card.image ? `${card.image}/low.png` : '',
-        image_url_hires: card.image ? `${card.image}/high.png` : '',
+        image_url: card.image ? `${card.image}/low.webp` : '',
+        image_url_hires: card.image ? `${card.image}/high.webp` : '',
         rarity,
         set_id: card.set.id,
         set_name: card.set.name,
@@ -301,6 +236,8 @@ async function syncSet(setId: string, report: SyncReport) {
         price,
         price_trend: priceTrend,
         price_source: priceSource,
+        variants: card.variants || null,
+        set_symbol_url: setSymbolUrl,
       },
       { onConflict: 'tcg_id' }
     ).select('id').single();
@@ -352,7 +289,25 @@ async function syncSet(setId: string, report: SyncReport) {
       console.warn(`  Could not fetch set detail for release date: ${(err as Error).message}`);
     }
     const basePrice = getEraFallbackPrice(set.id);
-    const imageUrl = set.logo ? `${set.logo}.png` : '';
+    const imageUrl = set.logo ? `${set.logo}.webp` : '';
+    const setSymbolUrl = set.symbol ? `${set.symbol}.webp` : null;
+
+    // Fetch serie logo (deduplicated via cache)
+    let serieLogoUrl: string | null = null;
+    if (!serieLogoCache.has(set.id)) {
+      const serieId = await fetchSetSerieId(set.id);
+      if (serieId) {
+        if (serieLogoCache.has(serieId)) {
+          serieLogoUrl = serieLogoCache.get(serieId)!;
+        } else {
+          serieLogoUrl = await fetchSerieLogoUrl(serieId);
+          serieLogoCache.set(serieId, serieLogoUrl);
+        }
+      }
+      serieLogoCache.set(set.id, serieLogoUrl);
+    } else {
+      serieLogoUrl = serieLogoCache.get(set.id)!;
+    }
 
     if (FIRST_EDITION_SET_IDS.includes(set.id)) {
       // Vintage set: create edition variant packs
@@ -376,36 +331,71 @@ async function syncSet(setId: string, report: SyncReport) {
           .is('booster_id', null)
           .maybeSingle();
 
-        const packData = {
-          name: `${set.name} — ${editionLabel}`,
-          description: `${editionLabel} booster pack from the ${set.name} set`,
-          price_usd: packPrice,
-          image_url: imageUrl,
-          cards_per_pack: 10,
-          set_id: set.id,
-          set_name: set.name,
-          edition,
-          available: true,
-          release_date: releaseDate,
-        };
-
         let packError;
         if (existing) {
-          ({ error: packError } = await supabase.from('packs').update(packData).eq('id', existing.id));
+          // Update metadata only — don't overwrite price_usd from dedicated price sync
+          ({ error: packError } = await supabase.from('packs').update({
+            name: `${set.name} — ${editionLabel}`,
+            description: `${editionLabel} booster pack from the ${set.name} set`,
+            image_url: imageUrl,
+            cards_per_pack: 10,
+            set_id: set.id,
+            set_name: set.name,
+            edition,
+            available: true,
+            release_date: releaseDate,
+            set_symbol_url: setSymbolUrl,
+            serie_logo_url: serieLogoUrl,
+          }).eq('id', existing.id));
         } else {
-          ({ error: packError } = await supabase.from('packs').insert(packData));
+          ({ error: packError } = await supabase.from('packs').insert({
+            name: `${set.name} — ${editionLabel}`,
+            description: `${editionLabel} booster pack from the ${set.name} set`,
+            price_usd: packPrice,
+            image_url: imageUrl,
+            cards_per_pack: 10,
+            set_id: set.id,
+            set_name: set.name,
+            edition,
+            available: true,
+            release_date: releaseDate,
+            set_symbol_url: setSymbolUrl,
+            serie_logo_url: serieLogoUrl,
+          }));
         }
 
         if (packError) {
           console.error(`  Error creating ${editionLabel} pack for ${set.name}:`, packError.message);
         } else {
-          console.log(`  Pack created: ${set.name} — ${editionLabel} ($${packPrice})`);
+          console.log(`  Pack ${existing ? 'updated' : 'created'}: ${set.name} — ${editionLabel}${existing ? '' : ` ($${packPrice})`}`);
         }
       }
     } else {
       // Modern set: single pack, no edition
-      const { error: packError } = await supabase.from('packs').upsert(
-        {
+      const { data: existingModern } = await supabase
+        .from('packs')
+        .select('id')
+        .eq('set_id', set.id)
+        .is('booster_id', null)
+        .is('edition', null)
+        .maybeSingle();
+
+      let packError;
+      if (existingModern) {
+        // Update metadata only — don't overwrite price_usd from dedicated price sync
+        ({ error: packError } = await supabase.from('packs').update({
+          name: set.name,
+          description: `Booster pack from the ${set.name} set`,
+          image_url: imageUrl,
+          cards_per_pack: 10,
+          set_name: set.name,
+          available: true,
+          release_date: releaseDate,
+          set_symbol_url: setSymbolUrl,
+          serie_logo_url: serieLogoUrl,
+        }).eq('id', existingModern.id));
+      } else {
+        ({ error: packError } = await supabase.from('packs').insert({
           name: set.name,
           description: `Booster pack from the ${set.name} set`,
           price_usd: basePrice,
@@ -415,9 +405,10 @@ async function syncSet(setId: string, report: SyncReport) {
           set_name: set.name,
           available: true,
           release_date: releaseDate,
-        },
-        { onConflict: 'set_id' }
-      );
+          set_symbol_url: setSymbolUrl,
+          serie_logo_url: serieLogoUrl,
+        }));
+      }
 
       if (packError) {
         console.error(`  Error creating pack for ${set.name}:`, packError.message);
@@ -556,56 +547,8 @@ async function main() {
       for (const { cardId, pricing } of detailResults) {
         if (!pricing) continue;
 
-        const tp = pricing.tcgplayer as Record<string, Record<string, number | null>> | undefined;
-        const cm = pricing.cardmarket as Record<string, number | null> | undefined;
-
-        // Map variants from tcgplayer
-        const variants = ['normal', 'holofoil', 'reverse-holofoil', '1stEditionHolofoil', '1stEditionNormal']
-          .filter((v) => tp?.[v]);
-
-        for (const variant of variants) {
-          const vp = tp?.[variant];
-          const row = {
-            card_id: cardId,
-            variant,
-            tcgplayer_low: vp?.lowPrice ?? null,
-            tcgplayer_mid: vp?.midPrice ?? null,
-            tcgplayer_high: vp?.highPrice ?? null,
-            tcgplayer_market: vp?.marketPrice ?? null,
-            tcgplayer_direct_low: vp?.directLowPrice ?? null,
-            cardmarket_avg: cm?.avg ?? null,
-            cardmarket_low: cm?.low ?? null,
-            cardmarket_trend: cm?.trend ?? null,
-            cardmarket_avg7: cm?.avg7 ?? null,
-            cardmarket_avg30: cm?.avg30 ?? null,
-            updated_at: new Date().toISOString(),
-          };
-
-          const { error } = await supabase
-            .from('card_pricing_details')
-            .upsert(row, { onConflict: 'card_id,variant' });
-
-          if (!error) detailCount++;
-        }
-
-        // If no tcgplayer variants but has cardmarket data, insert as 'normal'
-        if (variants.length === 0 && cm) {
-          const row = {
-            card_id: cardId,
-            variant: 'normal',
-            tcgplayer_low: null,
-            tcgplayer_mid: null,
-            tcgplayer_high: null,
-            tcgplayer_market: null,
-            tcgplayer_direct_low: null,
-            cardmarket_avg: cm.avg ?? null,
-            cardmarket_low: cm.low ?? null,
-            cardmarket_trend: cm.trend ?? null,
-            cardmarket_avg7: cm.avg7 ?? null,
-            cardmarket_avg30: cm.avg30 ?? null,
-            updated_at: new Date().toISOString(),
-          };
-
+        const rows = buildPricingDetailRows(cardId, pricing);
+        for (const row of rows) {
           const { error } = await supabase
             .from('card_pricing_details')
             .upsert(row, { onConflict: 'card_id,variant' });

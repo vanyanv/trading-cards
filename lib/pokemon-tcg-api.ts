@@ -41,8 +41,16 @@ export interface TCGdexPricing {
 }
 
 // Backwards-compatible type aliases
-// TCGCard extends the SDK Card with pricing (untyped in SDK but returned by API)
-type TCGCard = SDKCard & { pricing?: TCGdexPricing };
+// TCGCard extends the SDK Card with pricing and variants (untyped in SDK but returned by API)
+type TCGCard = SDKCard & {
+  pricing?: TCGdexPricing;
+  variants?: {
+    normal?: boolean;
+    holo?: boolean;
+    reverse?: boolean;
+    firstEdition?: boolean;
+  };
+};
 type TCGSet = SDKSetResume;
 type TCGPBooster = { id: string; name: string };
 type TCGPSetDetail = SDKSet;
@@ -212,6 +220,28 @@ export async function fetchBoosterSetIds(): Promise<string[]> {
   const result = Array.from(discoveredSetIds);
   console.log(`  Discovered ${result.length} booster sets`);
   return result;
+}
+
+// --- Set detail helpers ---
+
+export async function fetchSetSerieId(setId: string): Promise<string | null> {
+  try {
+    const set = await tcgdex.set.get(setId);
+    if (!set) return null;
+    return set.serie?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchSerieLogoUrl(serieId: string): Promise<string | null> {
+  try {
+    const serie = await tcgdex.serie.get(serieId);
+    if (!serie || !serie.logo) return null;
+    return `${serie.logo}.webp`;
+  } catch {
+    return null;
+  }
 }
 
 // --- Pricing helpers ---

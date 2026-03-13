@@ -203,6 +203,9 @@ export function CardTable({
                   {card.price != null ? (
                     <span className="flex items-center gap-1 font-semibold tabular-nums">
                       ${card.price.toFixed(2)}
+                      {card.price_source === 'estimate' && (
+                        <span className="text-[9px] text-muted-dim">est.</span>
+                      )}
                       {card.condition && card.condition !== 'NM' && (
                         <span className="text-[10px] text-muted-dim">({card.condition})</span>
                       )}
