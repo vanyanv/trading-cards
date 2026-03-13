@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/cn';
-import { Package } from 'lucide-react';
+import { Package, Menu, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserMenu } from '@/components/UserMenu';
 import type { User } from '@supabase/supabase-js';
@@ -21,6 +22,7 @@ export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const prefetchedRoutes = useRef(new Set<string>());
 
   const prefetchRoute = useCallback((href: string) => {
@@ -132,6 +134,40 @@ export function Navbar() {
     return () => clearInterval(interval);
   }, [balance]);
 
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [mobileOpen]);
+
+  // Lock body scroll when sidebar open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
+
+  const navLinks = [
+    { href: '/browse', label: 'Browse', match: (p: string) => p.startsWith('/browse') },
+    { href: '/community', label: 'Community', match: (p: string) => p.startsWith('/community') },
+    { href: '/stats', label: 'Stats', match: (p: string) => p.startsWith('/stats') },
+    ...(user
+      ? [{ href: '/collection', label: 'Collection', match: (p: string) => p === '/collection' }]
+      : []),
+  ];
+
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-surface/85 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-3 sm:px-6">
@@ -146,70 +182,44 @@ export function Navbar() {
             <span className="hidden sm:inline">PokePacks</span>
           </Link>
 
-          <Link
-            href="/browse"
-            onMouseEnter={() => prefetchRoute('/browse')}
-            className={cn(
-              'text-sm transition-colors',
-              pathname.startsWith('/browse')
-                ? 'text-foreground font-medium'
-                : 'text-muted hover:text-foreground'
-            )}
+          {/* Hamburger — mobile only */}
+          <button
+            onClick={() => setMobileOpen((prev) => !prev)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground transition-colors hover:text-foreground sm:hidden"
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
           >
-            Browse
-          </Link>
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
 
-          <Link
-            href="/community"
-            onMouseEnter={() => prefetchRoute('/community')}
-            className={cn(
-              'text-sm transition-colors',
-              pathname.startsWith('/community')
-                ? 'text-foreground font-medium'
-                : 'text-muted hover:text-foreground'
-            )}
-          >
-            Community
-          </Link>
-
-          <Link
-            href="/stats"
-            onMouseEnter={() => prefetchRoute('/stats')}
-            className={cn(
-              'text-sm transition-colors',
-              pathname.startsWith('/stats')
-                ? 'text-foreground font-medium'
-                : 'text-muted hover:text-foreground'
-            )}
-          >
-            Stats
-          </Link>
-
-          {user && (
-            <Link
-              href="/collection"
-              onMouseEnter={() => prefetchRoute('/collection')}
-              className={cn(
-                'text-sm transition-colors',
-                pathname === '/collection'
-                  ? 'text-foreground font-medium'
-                  : 'text-muted hover:text-foreground'
-              )}
-            >
-              Collection
-            </Link>
-          )}
+          {/* Desktop nav links — hidden on mobile */}
+          <div className="hidden items-center gap-8 sm:flex">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onMouseEnter={() => prefetchRoute(link.href)}
+                className={cn(
+                  'text-sm transition-colors',
+                  link.match(pathname)
+                    ? 'text-foreground font-medium'
+                    : 'text-muted hover:text-foreground'
+                )}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
           <ThemeToggle />
           {user ? (
             <>
-              {/* Unopened packs badge */}
+              {/* Unopened packs badge — desktop only */}
               {unopenedCount > 0 && (
                 <Link
                   href="/collection"
-                  className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold transition-colors hover:opacity-80"
+                  className="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold transition-colors hover:opacity-80 sm:flex"
                   style={{
                     backgroundColor: 'rgba(234,179,8,0.12)',
                     color: '#eab308',
@@ -221,10 +231,10 @@ export function Navbar() {
                 </Link>
               )}
 
-              {/* Balance display */}
+              {/* Balance display — desktop only */}
               {balance !== null && (
                 <div
-                  className="flex items-center rounded-full px-3 py-1 text-sm font-semibold tabular-nums"
+                  className="hidden items-center rounded-full px-3 py-1 text-sm font-semibold tabular-nums sm:flex"
                   style={{
                     backgroundColor: 'rgba(34,197,94,0.1)',
                     color: '#4ade80',
@@ -234,7 +244,9 @@ export function Navbar() {
                   ${formatBalance(displayBalance)}
                 </div>
               )}
-              <UserMenu supabase={supabase!} userId={user.id} />
+              <div className="hidden sm:block">
+                <UserMenu supabase={supabase!} userId={user.id} />
+              </div>
             </>
           ) : (
             <div className="flex items-center gap-1.5 sm:gap-3">
@@ -254,6 +266,87 @@ export function Navbar() {
           )}
         </div>
       </div>
+
+      {/* Mobile sidebar */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 top-14 z-40 bg-black/40 backdrop-blur-sm sm:hidden"
+              onClick={() => setMobileOpen(false)}
+            />
+            <motion.div
+              key="sidebar"
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed left-0 top-14 bottom-0 z-50 w-64 border-r border-border bg-surface shadow-warm-lg sm:hidden"
+            >
+              <div className="flex flex-col gap-1 p-4">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      'flex items-center rounded-lg px-3 py-3 text-sm font-medium transition-colors',
+                      link.match(pathname)
+                        ? 'bg-accent-soft text-foreground'
+                        : 'text-muted hover:bg-surface-elevated hover:text-foreground'
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+
+              {/* Account info — mobile only */}
+              {user && (
+                <div className="border-t border-border px-4 py-4">
+                  <div className="flex items-center gap-2">
+                    {balance !== null && (
+                      <div
+                        className="flex items-center rounded-full px-3 py-1 text-sm font-semibold tabular-nums"
+                        style={{
+                          backgroundColor: 'rgba(34,197,94,0.1)',
+                          color: '#4ade80',
+                          border: '1px solid rgba(34,197,94,0.2)',
+                        }}
+                      >
+                        ${formatBalance(displayBalance)}
+                      </div>
+                    )}
+                    {unopenedCount > 0 && (
+                      <Link
+                        href="/collection"
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold transition-colors hover:opacity-80"
+                        style={{
+                          backgroundColor: 'rgba(234,179,8,0.12)',
+                          color: '#eab308',
+                          border: '1px solid rgba(234,179,8,0.2)',
+                        }}
+                      >
+                        <Package className="h-3.5 w-3.5" />
+                        <span className="tabular-nums">{unopenedCount}</span>
+                      </Link>
+                    )}
+                  </div>
+                  <div className="mt-3">
+                    <UserMenu supabase={supabase!} userId={user.id} />
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </nav>
   );
 }
