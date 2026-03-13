@@ -340,6 +340,17 @@ export const RARITY_ESTIMATE_PRICES: Record<string, number> = {
   [Rarity.UltraRare]: 15.0,
   [Rarity.SpecialIllustrationRare]: 30.0,
   [Rarity.HyperRare]: 60.0,
+  // TCG Pocket rarities
+  [Rarity.OneDiamond]: 0.10,
+  [Rarity.TwoDiamond]: 0.25,
+  [Rarity.ThreeDiamond]: 1.50,
+  [Rarity.FourDiamond]: 5.0,
+  [Rarity.OneStar]: 8.0,
+  [Rarity.TwoStar]: 15.0,
+  [Rarity.ThreeStar]: 30.0,
+  [Rarity.Crown]: 60.0,
+  [Rarity.OneShiny]: 5.0,
+  [Rarity.TwoShiny]: 15.0,
 };
 
 // Era-based real-world pack pricing (USD)

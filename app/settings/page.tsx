@@ -12,6 +12,7 @@ import { cn } from '@/lib/cn';
 export default function SettingsPage() {
   const [displayName, setDisplayName] = useState('');
   const [avatarId, setAvatarId] = useState('pokeball');
+  const [autoBuyback, setAutoBuyback] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -41,6 +42,14 @@ export default function SettingsPage() {
       } else {
         setDisplayName(user.email?.split('@')[0] ?? '');
       }
+
+      // Load auto-buyback preference
+      const prefRes = await fetch('/api/user/preferences');
+      if (prefRes.ok) {
+        const prefs = await prefRes.json();
+        setAutoBuyback(prefs.auto_buyback_enabled ?? true);
+      }
+
       setLoading(false);
     };
     load();
@@ -171,6 +180,51 @@ export default function SettingsPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Auto-Buyback */}
+        <div className="mt-8">
+          <label className="mb-1.5 block text-xs font-medium text-muted">
+            Pack Opening
+          </label>
+          <button
+            type="button"
+            onClick={async () => {
+              const next = !autoBuyback;
+              setAutoBuyback(next);
+              try {
+                const res = await fetch('/api/user/preferences', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ auto_buyback_enabled: next }),
+                });
+                if (!res.ok) setAutoBuyback(!next);
+              } catch {
+                setAutoBuyback(!next);
+              }
+            }}
+            className="flex w-full items-center justify-between rounded-xl border border-border bg-surface-elevated px-4 py-3 transition-colors hover:border-accent/30"
+          >
+            <div className="text-left">
+              <p className="text-sm font-medium text-foreground">Auto-Buyback</p>
+              <p className="mt-0.5 text-xs text-muted">
+                Automatically sell Common &amp; Uncommon cards worth less than $5
+              </p>
+            </div>
+            <div
+              className={cn(
+                'relative ml-4 h-6 w-11 shrink-0 rounded-full transition-colors',
+                autoBuyback ? 'bg-accent' : 'bg-border'
+              )}
+            >
+              <div
+                className={cn(
+                  'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform',
+                  autoBuyback ? 'translate-x-5.5' : 'translate-x-0.5'
+                )}
+              />
+            </div>
+          </button>
         </div>
 
         {/* Save */}

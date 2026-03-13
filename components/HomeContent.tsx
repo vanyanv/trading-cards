@@ -27,10 +27,12 @@ export function HomeContent({
   trendingPacks,
   featuredCards,
   recentPulls,
+  featuredPullRates,
 }: {
   trendingPacks: Pack[];
   featuredCards: FeaturedCard[];
   recentPulls: RecentPull[];
+  featuredPullRates: { rarity: Rarity; weight: number }[];
 }) {
   // Sort by rarity descending (rarest first) then split
   const sortedFeatured = [...featuredCards].sort(
@@ -71,8 +73,8 @@ export function HomeContent({
               transition={{ duration: 0.5, delay: 0.1, ease }}
               className="mt-5 max-w-md text-base leading-relaxed text-muted mx-auto lg:mx-0"
             >
-              Open packs with real pull rates, chase rare cards, and build your
-              ultimate collection.
+              Open packs that represent real, physical cards. Keep the hits,
+              auto-sell the rest.
             </motion.p>
 
             {/* Rare Card Showcase */}
@@ -131,7 +133,7 @@ export function HomeContent({
         viewport={{ once: true, margin: '-80px' }}
         transition={{ duration: 0.6, ease }}
       >
-        <FeaturedPackSpotlight packs={trendingPacks} />
+        <FeaturedPackSpotlight packs={trendingPacks} pullRates={featuredPullRates} />
       </motion.div>
 
       <SectionDivider type="Water" />

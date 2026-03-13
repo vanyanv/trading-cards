@@ -4,7 +4,13 @@ import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { PackOpeningAnimation } from '@/components/PackOpeningAnimation';
+import { AutoSellToast } from '@/components/AutoSellToast';
 import type { Pack, PulledCard } from '@/types';
+
+interface AutoSoldInfo {
+  count: number;
+  totalEarned: number;
+}
 
 export default function PackOpeningPage() {
   const { packId } = useParams<{ packId: string }>();
@@ -18,6 +24,7 @@ export default function PackOpeningPage() {
   const [packCost, setPackCost] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [autoSold, setAutoSold] = useState<AutoSoldInfo | null>(null);
 
   // Track the current unopened pack ID so we can reveal it on animation complete
   const currentUnopenedIdRef = useRef<string | null>(null);
@@ -40,7 +47,7 @@ export default function PackOpeningPage() {
   }, []);
 
   // Reveal: move cards from unopened_packs to user_cards (called on animation complete)
-  const revealPack = useCallback(async (revealId: string) => {
+  const revealPack = useCallback(async (revealId: string): Promise<{ autoSold?: AutoSoldInfo; newBalance?: number } | null> => {
     const res = await fetch('/api/packs/reveal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -50,10 +57,11 @@ export default function PackOpeningPage() {
     if (!res.ok) {
       // Non-critical: cards were already shown, just log
       console.error('Failed to finalize reveal');
-      return;
+      return null;
     }
 
-    // Navbar will pick up the new count on next navigation
+    const data = await res.json();
+    return data;
   }, []);
 
   // Keep a stable ref to revealPack for cleanup
@@ -61,6 +69,7 @@ export default function PackOpeningPage() {
   revealPackRef.current = revealPack;
 
   // Auto-reveal on unmount if pack was opened but not yet finalized
+  // Toast won't show since page is gone, but balance still gets credited server-side
   useEffect(() => {
     return () => {
       const id = currentUnopenedIdRef.current;
@@ -100,6 +109,7 @@ export default function PackOpeningPage() {
     setLoading(true);
     setCards(null);
     setError(null);
+    setAutoSold(null);
 
     try {
       let pulledCards: PulledCard[];
@@ -144,11 +154,17 @@ export default function PackOpeningPage() {
   }, [packId]);
 
   // Called when animation reaches "complete" phase — finalize the reveal
-  const handleAnimationComplete = useCallback(() => {
+  const handleAnimationComplete = useCallback(async () => {
     const id = currentUnopenedIdRef.current;
     if (id) {
-      revealPack(id);
       currentUnopenedIdRef.current = null;
+      const result = await revealPack(id);
+      if (result?.autoSold) {
+        setAutoSold(result.autoSold);
+      }
+      if (result?.newBalance !== undefined) {
+        window.dispatchEvent(new CustomEvent('balance-update', { detail: { balance: result.newBalance } }));
+      }
     }
   }, [revealPack]);
 
@@ -195,14 +211,23 @@ export default function PackOpeningPage() {
   }
 
   return (
-    <PackOpeningAnimation
-      cards={cards}
-      packName={pack.name}
-      packImage={pack.featured_card_image || pack.image_url}
-      packCost={packCost}
-      onOpenAnother={handleOpenAnother}
-      onComplete={handleAnimationComplete}
-      edition={pack.edition}
-    />
+    <>
+      <PackOpeningAnimation
+        cards={cards}
+        packName={pack.name}
+        packImage={pack.featured_card_image || pack.image_url}
+        packCost={packCost}
+        onOpenAnother={handleOpenAnother}
+        onComplete={handleAnimationComplete}
+        edition={pack.edition}
+      />
+      {autoSold && (
+        <AutoSellToast
+          count={autoSold.count}
+          totalEarned={autoSold.totalEarned}
+          onDismiss={() => setAutoSold(null)}
+        />
+      )}
+    </>
   );
 }

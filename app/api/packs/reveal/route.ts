@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { Rarity } from '@/types';
+import { shouldAutoSell, getCardPrice, getAutoSellValue } from '@/lib/auto-buyback';
 
 export async function POST(request: Request) {
   try {
@@ -53,6 +55,64 @@ export async function POST(request: Request) {
       );
     }
 
+    // Step 2.5: Check auto-buyback preference
+    const { data: profile } = await adminClient
+      .from('user_profiles')
+      .select('auto_buyback_enabled')
+      .eq('user_id', user.id)
+      .single();
+
+    const autoBuybackEnabled = profile?.auto_buyback_enabled ?? true;
+
+    // Partition cards into keep vs auto-sell
+    type PackCard = (typeof packCards)[number];
+    let keptCards: PackCard[] = packCards;
+    let autoSoldCards: PackCard[] = [];
+    let autoSoldTotal = 0;
+
+    if (autoBuybackEnabled) {
+      keptCards = [];
+      autoSoldCards = [];
+      for (const pc of packCards) {
+        const card = pc.card as unknown as Record<string, unknown>;
+        const rarity = card.rarity as Rarity;
+        const price = getCardPrice({ price: card.price as number | null, rarity: card.rarity as string });
+        if (shouldAutoSell(rarity, price)) {
+          autoSoldCards.push(pc);
+          autoSoldTotal += getAutoSellValue(price);
+        } else {
+          keptCards.push(pc);
+        }
+      }
+      autoSoldTotal = parseFloat(autoSoldTotal.toFixed(2));
+    }
+
+    // Step 2.7: Credit balance for auto-sold cards BEFORE deleting the pack (rollback safety)
+    let creditedNewBalance: number | undefined;
+    if (autoSoldCards.length > 0) {
+      const { data: balance } = await adminClient
+        .from('user_balances')
+        .select('balance_usd')
+        .eq('user_id', user.id)
+        .single();
+
+      const prevBal = balance?.balance_usd ?? 0;
+      const newBalance = parseFloat((prevBal + autoSoldTotal).toFixed(2));
+      creditedNewBalance = newBalance;
+
+      const { error: balanceError } = await adminClient
+        .from('user_balances')
+        .update({ balance_usd: newBalance, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+
+      if (balanceError) {
+        return NextResponse.json(
+          { error: 'Failed to credit auto-sell balance' },
+          { status: 500 }
+        );
+      }
+    }
+
     // Step 3: Atomic claim — DELETE the pack row (CASCADE cleans up unopened_pack_cards)
     const { data: claimedPack, error: claimError } = await adminClient
       .from('unopened_packs')
@@ -63,15 +123,27 @@ export async function POST(request: Request) {
       .single();
 
     if (claimError || !claimedPack) {
-      // Another request claimed it between our SELECT and DELETE (race condition)
+      // Rollback balance credit by subtracting the amount we added
+      if (autoSoldCards.length > 0) {
+        const { data: curBal } = await adminClient
+          .from('user_balances')
+          .select('balance_usd')
+          .eq('user_id', user.id)
+          .single();
+        const revertedBalance = parseFloat(((curBal?.balance_usd ?? 0) - autoSoldTotal).toFixed(2));
+        await adminClient
+          .from('user_balances')
+          .update({ balance_usd: revertedBalance, updated_at: new Date().toISOString() })
+          .eq('user_id', user.id);
+      }
       return NextResponse.json(
         { error: 'Pack not found or already opened' },
         { status: 404 }
       );
     }
 
-    // Step 4: Insert cards into user_cards
-    const userCardRows = packCards.map((pc) => ({
+    // Step 4: Insert kept cards into user_cards
+    const userCardRows = keptCards.map((pc) => ({
       user_id: user.id,
       card_id: pc.card_id,
       is_reverse_holo: pc.is_reverse_holo,
@@ -79,32 +151,47 @@ export async function POST(request: Request) {
       pack_opened_from: claimedPack.pack_id,
     }));
 
-    const { error: insertError } = await adminClient
-      .from('user_cards')
-      .insert(userCardRows);
+    if (userCardRows.length > 0) {
+      const { error: insertError } = await adminClient
+        .from('user_cards')
+        .insert(userCardRows);
 
-    if (insertError) {
-      // Rollback: re-insert the unopened pack + cards (CASCADE already deleted pack_cards)
-      await adminClient.from('unopened_packs').insert({
-        id: claimedPack.id,
-        user_id: claimedPack.user_id,
-        pack_id: claimedPack.pack_id,
-        purchased_at: claimedPack.purchased_at,
-      });
-      await adminClient.from('unopened_pack_cards').insert(
-        packCards.map((pc) => ({
-          unopened_pack_id: claimedPack.id,
-          card_id: pc.card_id,
-          is_reverse_holo: pc.is_reverse_holo,
-          edition: pc.edition,
-          slot_number: pc.slot_number,
-        }))
-      );
+      if (insertError) {
+        // Rollback: re-insert the unopened pack + cards
+        await adminClient.from('unopened_packs').insert({
+          id: claimedPack.id,
+          user_id: claimedPack.user_id,
+          pack_id: claimedPack.pack_id,
+          purchased_at: claimedPack.purchased_at,
+        });
+        await adminClient.from('unopened_pack_cards').insert(
+          packCards.map((pc) => ({
+            unopened_pack_id: claimedPack.id,
+            card_id: pc.card_id,
+            is_reverse_holo: pc.is_reverse_holo,
+            edition: pc.edition,
+            slot_number: pc.slot_number,
+          }))
+        );
+        // Rollback balance credit by subtracting the amount we added
+        if (autoSoldCards.length > 0) {
+          const { data: curBal2 } = await adminClient
+            .from('user_balances')
+            .select('balance_usd')
+            .eq('user_id', user.id)
+            .single();
+          const revertedBal = parseFloat(((curBal2?.balance_usd ?? 0) - autoSoldTotal).toFixed(2));
+          await adminClient
+            .from('user_balances')
+            .update({ balance_usd: revertedBal, updated_at: new Date().toISOString() })
+            .eq('user_id', user.id);
+        }
 
-      return NextResponse.json(
-        { error: 'Failed to save cards to collection' },
-        { status: 500 }
-      );
+        return NextResponse.json(
+          { error: 'Failed to save cards to collection' },
+          { status: 500 }
+        );
+      }
     }
 
     // Build PulledCard[] response with full card details
@@ -118,7 +205,17 @@ export async function POST(request: Request) {
       };
     });
 
-    return NextResponse.json({ cards, packId: claimedPack.pack_id });
+    return NextResponse.json({
+      cards,
+      packId: claimedPack.pack_id,
+      ...(autoSoldCards.length > 0 && {
+        autoSold: {
+          count: autoSoldCards.length,
+          totalEarned: autoSoldTotal,
+        },
+        newBalance: creditedNewBalance,
+      }),
+    });
   } catch {
     return NextResponse.json(
       { error: 'Internal server error' },

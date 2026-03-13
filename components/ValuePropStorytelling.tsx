@@ -58,6 +58,7 @@ const OPTIONS = [
 const TRUST_BADGES = [
   'Real Physical Cards',
   'Instant Cash Out',
+  'Auto-Sell Commons',
   'Vault or Ship',
 ];
 
