@@ -3,23 +3,22 @@
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { DollarSign, ArrowRight, Sparkles } from 'lucide-react';
-import { getPriorRatesForSet, RARITY_CONFIG } from '@/lib/constants';
+import { RARITY_CONFIG, getEraFallbackPrice } from '@/lib/constants';
 import { PackCard } from './PackCard';
-import type { Pack } from '@/types';
+import type { Pack, Rarity } from '@/types';
 import Link from 'next/link';
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
-export function FeaturedPackSpotlight({ packs }: { packs: Pack[] }) {
+export function FeaturedPackSpotlight({ packs, pullRates }: { packs: Pack[]; pullRates: { rarity: Rarity; weight: number }[] }) {
   if (packs.length === 0) return null;
 
   const featured = packs[0];
   const remaining = packs.slice(1);
 
-  // Top 3 rarest pull rates for preview, using era-appropriate rates
-  const eraRates = getPriorRatesForSet(featured.set_id);
-  const topRates = eraRates.slice(-3).reverse();
-  const totalWeight = eraRates.reduce((s, r) => s + r.weight, 0);
+  // Top 3 rarest pull rates from server-filtered rates
+  const topRates = pullRates.slice(-3).reverse();
+  const totalWeight = pullRates.reduce((s, r) => s + r.weight, 0);
 
   return (
     <motion.section
@@ -81,7 +80,7 @@ export function FeaturedPackSpotlight({ packs }: { packs: Pack[] }) {
             {/* Price */}
             <div className="mt-5 flex items-center gap-1 justify-center sm:justify-start">
               <DollarSign className="h-5 w-5 text-accent" />
-              <span className="text-2xl font-bold text-foreground">{featured.price_usd?.toFixed(2) ?? '—'}</span>
+              <span className="text-2xl font-bold text-foreground">{(featured.price_usd ?? getEraFallbackPrice(featured.set_id)).toFixed(2)}</span>
             </div>
 
             {/* Pull rate preview */}

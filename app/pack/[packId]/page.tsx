@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getEffectiveRates } from '@/lib/pull-rate-engine';
 import { PackDetail } from '@/components/PackDetail';
 import type { Pack, Card, Rarity } from '@/types';
+import type { PricingDetailRow } from '@/lib/card-pricing';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -68,6 +69,17 @@ export default async function PackDetailPage({
     editionVariants = (siblings || []) as Pack[];
   }
 
+  // Fetch per-variant pricing details for edition-aware best pull prices
+  let cardPricingDetails: PricingDetailRow[] = [];
+  if (typedPack.edition && cards && cards.length > 0) {
+    const cardIds = cards.map((c: Card) => c.id);
+    const { data: details } = await supabase
+      .from('card_pricing_details')
+      .select('card_id, variant, tcgplayer_market, tcgplayer_mid, tcgplayer_low')
+      .in('card_id', cardIds);
+    cardPricingDetails = (details || []) as PricingDetailRow[];
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
 
   const isTCGP = typedPack.cards_per_pack === 5;
@@ -101,6 +113,7 @@ export default async function PackDetailPage({
       isTCGP={isTCGP}
       isAuthenticated={!!user}
       editionVariants={editionVariants}
+      cardPricingDetails={cardPricingDetails}
     />
   );
 }

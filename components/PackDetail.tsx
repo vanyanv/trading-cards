@@ -9,6 +9,8 @@ import { cn } from '@/lib/cn';
 import { RARITY_CONFIG, EDITION_CONFIG, EDITION_ORDER } from '@/lib/constants';
 import { rarityOrder } from '@/lib/rarity';
 import { RarityBadge } from './RarityBadge';
+import { getEditionPrice } from '@/lib/card-pricing';
+import type { PricingDetailRow } from '@/lib/card-pricing';
 import type { Pack, Card, Rarity, Edition } from '@/types';
 
 type Tab = 'rates' | 'cards';
@@ -21,6 +23,7 @@ export function PackDetail({
   isTCGP = false,
   isAuthenticated,
   editionVariants = [],
+  cardPricingDetails = [],
 }: {
   pack: Pack;
   cards: Card[];
@@ -29,6 +32,7 @@ export function PackDetail({
   isTCGP?: boolean;
   isAuthenticated: boolean;
   editionVariants?: Pack[];
+  cardPricingDetails?: PricingDetailRow[];
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('rates');
   const [rarityFilter, setRarityFilter] = useState('all');
@@ -55,11 +59,14 @@ export function PackDetail({
       ? cards
       : cards.filter((c) => c.rarity === rarityFilter);
 
-  // Best pull value — most expensive card in the pack
+  // Best pull value — most expensive card in the pack, edition-aware
   const bestPullPrice = useMemo(() => {
-    const prices = cards.map((c) => c.price).filter((p): p is number => p != null && p > 0);
+    const prices = cards.map((c) => {
+      const details = (cardPricingDetails || []).filter((d) => d.card_id === c.id);
+      return getEditionPrice(c.price ?? null, selectedPack.edition as Edition | null, details);
+    }).filter((p): p is number => p != null && p > 0);
     return prices.length > 0 ? Math.max(...prices) : null;
-  }, [cards]);
+  }, [cards, selectedPack.edition, cardPricingDetails]);
 
   // Chase cards — top 8 rarest cards sorted by rarity order
   const chaseCards = useMemo(() => {
