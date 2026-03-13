@@ -96,7 +96,7 @@ export function HeroCardStack({ cards }: { cards: FeaturedCard[] }) {
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="relative h-[420px] w-full lg:h-[500px]"
+      className="relative h-[340px] w-full sm:h-[420px] lg:h-[500px]"
     >
       {CARD_POSITIONS.map((pos, i) => {
         const card = cards[cardSlots[i]];

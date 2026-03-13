@@ -50,7 +50,7 @@ export function HomeContent({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6, ease }}
-        className="relative pb-16 pt-16 sm:pt-20 lg:pt-24"
+        className="relative pb-10 pt-8 sm:pb-16 sm:pt-20 lg:pt-24"
       >
         <div className="flex flex-col-reverse items-center gap-8 lg:flex-row lg:gap-12">
           {/* Left: text + rare card showcase */}
